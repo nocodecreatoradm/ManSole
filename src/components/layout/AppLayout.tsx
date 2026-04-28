@@ -15,6 +15,8 @@ import {
   Users,
   FileText,
   Factory,
+  Calendar,
+  Package,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -33,9 +35,11 @@ export default function AppLayout() {
   const navItems = [
     { label: 'Dashboard', path: '/app/dashboard', icon: LayoutDashboard },
     { label: 'Activos', path: '/app/activos', icon: Cog },
+    { label: 'Mantenimiento Preventivo', path: '/app/preventivo', icon: Calendar, roles: ['admin', 'supervisor'] },
     { label: 'Órdenes de Trabajo', path: '/app/ordenes', icon: Wrench },
     { label: 'Solicitudes', path: '/app/solicitudes', icon: ClipboardList },
     { label: 'Plantas y Áreas', path: '/app/plantas', icon: Factory, roles: ['admin', 'supervisor'] },
+    { label: 'Repuestos e Inventario', path: '/app/inventario', icon: Package },
     { label: 'Usuarios', path: '/app/usuarios', icon: Users, roles: ['admin'] },
     { label: 'Reportes', path: '/app/reportes', icon: FileText, roles: ['admin', 'supervisor'] },
     { label: 'Configuración', path: '/app/configuracion', icon: Settings },

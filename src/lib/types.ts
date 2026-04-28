@@ -13,6 +13,35 @@ export type MsProfile = {
   updated_at: string
 }
 
+export interface MsRepuesto {
+  id: string
+  codigo: string
+  nombre: string
+  descripcion: string | null
+  categoria: string | null
+  uom: string
+  stock_actual: number
+  stock_minimo: number
+  costo_unitario: number
+  ubicacion: string | null
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface MsInventarioMovimiento {
+  id: string
+  repuesto_id: string
+  tipo: 'entrada' | 'salida' | 'ajuste'
+  cantidad: number
+  referencia_tipo: string | null
+  referencia_id: string | null
+  usuario_id: string | null
+  usuario_nombre?: string
+  notas: string | null
+  fecha_movimiento: string
+}
+
 export type MsPlanta = {
   id: string
   nombre: string
@@ -156,4 +185,20 @@ export type MsComponenteActividad = {
   created_at: string
   componente_nombre?: string
   componente_codigo?: string
+}
+
+export type MsPlanPreventivo = {
+  id: string
+  activo_id: string
+  nombre: string
+  descripcion: string | null
+  frecuencia_dias: number
+  ultima_fecha: string | null
+  proxima_fecha: string
+  prioridad: 'critica' | 'alta' | 'media' | 'baja'
+  is_active: boolean
+  created_at: string
+  updated_at: string
+  activo_nombre?: string
+  activo_codigo?: string
 }

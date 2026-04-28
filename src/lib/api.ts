@@ -1,7 +1,5 @@
-import type { 
-  MsActivo, MsArea, MsCategoriaActivo, MsOrdenTrabajo, 
-  MsPlanta, MsProfile, MsSolicitudTrabajo,
-  MsParteActivo, MsComponenteParte, MsActividadOT, MsComponenteActividad
+  MsParteActivo, MsComponenteParte, MsActividadOT, MsComponenteActividad,
+  MsRepuesto, MsInventarioMovimiento
 } from './types'
 
 const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:4000/api' : '/api');
@@ -130,6 +128,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(data)
     }),
+    getParts: (id: string) => request<any[]>(`/work-orders/${id}/parts`),
+    addPart: (id: string, data: { repuesto_id: string, cantidad: number, usuario_id?: string }) => request<any>(`/work-orders/${id}/parts`, {
+      method: 'POST',
+      body: JSON.stringify(data)
+    }),
   },
 
   workRequests: {
@@ -157,5 +160,27 @@ export const api = {
     getTrends: () => request<{ month: string, count: number, preventive: number, corrective: number }[]>('/analytics/trends'),
     getAssetHealth: () => request<{ estado: string, count: number }[]>('/analytics/asset-health'),
     getAssetMetrics: (id: string) => request<{ total_ots: number, completed_ots: number, avg_repair_time: number }>(`/analytics/assets/${id}`)
+  },
+  
+  preventive: {
+    getAll: () => request<MsPlanPreventivo[]>('/preventive'),
+    create: (data: Partial<MsPlanPreventivo>) => request<MsPlanPreventivo>('/preventive', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: string, data: Partial<MsPlanPreventivo>) => request<void>(`/preventive/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    delete: (id: string) => request<void>(`/preventive/${id}`, { method: 'DELETE' })
+  },
+
+  inventory: {
+    getParts: () => request<MsRepuesto[]>('/inventory/parts'),
+    createPart: (data: Partial<MsRepuesto>) => request<MsRepuesto>('/inventory/parts', { method: 'POST', body: JSON.stringify(data) }),
+    recordMovement: (data: { 
+      repuesto_id: string, 
+      tipo: 'entrada' | 'salida' | 'ajuste', 
+      cantidad: number, 
+      referencia_tipo?: string, 
+      referencia_id?: string, 
+      notas?: string,
+      usuario_id?: string 
+    }) => request<{ success: true }>('/inventory/movements', { method: 'POST', body: JSON.stringify(data) }),
+    getMovements: (partId: string) => request<MsInventarioMovimiento[]>(`/inventory/parts/${partId}/movements`),
   }
 }

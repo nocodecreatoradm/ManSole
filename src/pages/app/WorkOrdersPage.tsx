@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../lib/api'
 import type { MsOrdenTrabajo } from '../../lib/types'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, Search, FileText, X, Filter, Eye, Edit3, User, Calendar, Tag, Wrench } from 'lucide-react'
+import { Plus, Search, FileText, X, Filter, Eye, Edit3, User, Calendar, Tag, Wrench, Package, AlertTriangle } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuthStore } from '../../store/authStore'
 
@@ -43,6 +43,15 @@ export default function WorkOrdersPage() {
     }
   })
 
+  const { data: repuestos = [] } = useQuery({
+    queryKey: ['inventory-parts'],
+    queryFn: async () => {
+      const { data, error } = await api.inventory.getParts()
+      if (error) throw new Error(error)
+      return data || []
+    }
+  })
+
   // Mutations
   const saveMutation = useMutation({
     mutationFn: async (payload: any) => {
@@ -70,7 +79,7 @@ export default function WorkOrdersPage() {
   const [drawerMode, setDrawerMode] = useState<'detail' | 'form'>('detail')
   const [selectedOT, setSelectedOT] = useState<MsOrdenTrabajo | null>(null)
   const [isEditing, setIsEditing] = useState(false)
-  const [activeTab, setActiveTab] = useState<'summary' | 'activities'>('summary')
+  const [activeTab, setActiveTab] = useState<'summary' | 'activities' | 'materials'>('summary')
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null)
   const [showActivityForm, setShowActivityForm] = useState(false)
   const [activityForm, setActivityForm] = useState({
@@ -112,6 +121,17 @@ export default function WorkOrdersPage() {
     enabled: !!selectedOT && showDrawer
   })
 
+  const { data: otParts = [], refetch: refetchOTParts } = useQuery({
+    queryKey: ['ot-parts', selectedOT?.id],
+    queryFn: async () => {
+      if (!selectedOT) return []
+      const { data, error } = await api.workOrders.getParts(selectedOT.id)
+      if (error) throw new Error(error)
+      return data || []
+    },
+    enabled: !!selectedOT && showDrawer && drawerMode === 'detail'
+  })
+
   // Sub-mutations
   const createActivityMutation = useMutation({
     mutationFn: (payload: any) => api.workOrders.createActivity(selectedOT!.id, payload),
@@ -132,6 +152,24 @@ export default function WorkOrdersPage() {
       setComponentForm({ componente_id: '', cantidad: 1, accion: 'reemplazo' })
     }
   })
+
+  const addPartToOTMutation = useMutation({
+    mutationFn: (payload: { repuesto_id: string, cantidad: number }) => 
+      api.workOrders.addPart(selectedOT!.id, { ...payload, usuario_id: profile?.id }),
+    onSuccess: () => {
+      refetchOTParts()
+      queryClient.invalidateQueries({ queryKey: ['inventory-parts'] })
+      toast.success('Repuesto asignado correctamente')
+      setShowPartForm(false)
+      setPartForm({ repuesto_id: '', cantidad: 1 })
+    },
+    onError: (err: any) => {
+      toast.error(err.message || 'Error al asignar repuesto')
+    }
+  })
+
+  const [showPartForm, setShowPartForm] = useState(false)
+  const [partForm, setPartForm] = useState({ repuesto_id: '', cantidad: 1 })
 
   // Form state
   const [form, setForm] = useState({
@@ -302,6 +340,7 @@ export default function WorkOrdersPage() {
                     <div className="tabs-container" style={{ marginBottom: 24 }}>
                       <button className={`tab-btn ${activeTab === 'summary' ? 'active' : ''}`} onClick={() => setActiveTab('summary')}>Resumen</button>
                       <button className={`tab-btn ${activeTab === 'activities' ? 'active' : ''}`} onClick={() => setActiveTab('activities')}>Ejecución (Actividades)</button>
+                      <button className={`tab-btn ${activeTab === 'materials' ? 'active' : ''}`} onClick={() => setActiveTab('materials')}>Materiales / Repuestos</button>
                     </div>
 
                     {activeTab === 'summary' && (
@@ -456,6 +495,84 @@ export default function WorkOrdersPage() {
                             ))
                           )}
                         </div>
+                      </div>
+                    )}
+
+                    {activeTab === 'materials' && (
+                      <div className="drawer-section">
+                        <div className="drawer-section-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span><Package size={14} /> Materiales y Repuestos Utilizados</span>
+                          {!showPartForm && (
+                            <button className="btn btn-primary btn-sm" onClick={() => setShowPartForm(true)}>+ Añadir Repuesto</button>
+                          )}
+                        </div>
+
+                        {showPartForm && (
+                          <div className="glass-card" style={{ padding: 16, marginBottom: 20, border: '1px solid var(--primary-color)' }}>
+                            <h4 style={{ marginBottom: 12, fontSize: 14 }}>Consumir Repuesto</h4>
+                            <div className="input-group" style={{ marginBottom: 12 }}>
+                              <label>Seleccionar Repuesto (Stock Disp.)</label>
+                              <select className="input-field" value={partForm.repuesto_id} onChange={(e) => setPartForm({ ...partForm, repuesto_id: e.target.value })}>
+                                <option value="">Seleccionar...</option>
+                                {repuestos.map((r: any) => (
+                                  <option key={r.id} value={r.id} disabled={r.stock_actual <= 0}>
+                                    {r.nombre} — {r.codigo} (Disp: {r.stock_actual} {r.uom})
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            <div className="input-group" style={{ marginBottom: 16 }}>
+                              <label>Cantidad a Utilizar</label>
+                              <input type="number" className="input-field" min={1} value={partForm.cantidad} onChange={(e) => setPartForm({ ...partForm, cantidad: parseFloat(e.target.value) || 1 })} />
+                            </div>
+                            <div style={{ display: 'flex', gap: 8 }}>
+                              <button className="btn btn-primary btn-sm" onClick={() => addPartToOTMutation.mutate(partForm)} disabled={addPartToOTMutation.isPending}>Asignar</button>
+                              <button className="btn btn-ghost btn-sm" onClick={() => setShowPartForm(false)}>Cancelar</button>
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="list-container" style={{ marginTop: 12 }}>
+                          {otParts.length === 0 ? (
+                            <div className="empty-state-small">
+                              <Package size={20} style={{ opacity: 0.3 }} />
+                              <p className="text-muted" style={{ fontSize: 13 }}>No hay materiales registrados en esta OT.</p>
+                            </div>
+                          ) : (
+                            <table className="data-table text-sm">
+                              <thead>
+                                <tr>
+                                  <th>Repuesto</th>
+                                  <th>Cant.</th>
+                                  <th>Costo Unit.</th>
+                                  <th>Total</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {otParts.map((p: any) => (
+                                  <tr key={p.id}>
+                                    <td>
+                                      <div style={{ fontWeight: 600 }}>{p.repuesto_nombre}</div>
+                                      <div className="text-xs text-muted">{p.repuesto_codigo}</div>
+                                    </td>
+                                    <td>{p.cantidad} {p.uom}</td>
+                                    <td>${p.costo_unitario_aplicado?.toFixed(2)}</td>
+                                    <td style={{ fontWeight: 600 }}>${(p.cantidad * (p.costo_unitario_aplicado || 0)).toFixed(2)}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          )}
+                        </div>
+                        
+                        {otParts.length > 0 && (
+                          <div style={{ marginTop: 20, padding: 16, background: 'rgba(var(--primary-rgb), 0.05)', borderRadius: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>TOTAL MATERIALES</span>
+                            <span style={{ fontSize: 20, fontWeight: 900, color: 'var(--brand-primary)' }}>
+                              ${otParts.reduce((acc: number, curr: any) => acc + (curr.cantidad * (curr.costo_unitario_aplicado || 0)), 0).toFixed(2)}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     )}
                   </>

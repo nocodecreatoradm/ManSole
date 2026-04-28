@@ -33,6 +33,8 @@ import PlantasPage from './pages/app/PlantasPage'
 import UsersPage from './pages/app/UsersPage'
 import ReportsPage from './pages/app/ReportsPage'
 import SettingsPage from './pages/app/SettingsPage'
+import PreventivePage from './pages/app/PreventivePage'
+import InventoryPage from './pages/app/InventoryPage'
 
 function ProtectedRoute({ children, roles }: { children: React.ReactNode; roles?: string[] }) {
   const { profile, loading, setLoading } = useAuthStore()
@@ -100,6 +102,11 @@ export default function App() {
             <Route path="activos" element={<AssetsPage />} />
             <Route path="ordenes" element={<WorkOrdersPage />} />
             <Route path="solicitudes" element={<WorkRequestsPage />} />
+            <Route path="preventivo" element={
+              <ProtectedRoute roles={['admin', 'supervisor']}>
+                <PreventivePage />
+              </ProtectedRoute>
+            } />
             <Route path="plantas" element={
               <ProtectedRoute roles={['admin', 'supervisor']}>
                 <PlantasPage />
@@ -115,6 +122,7 @@ export default function App() {
                 <ReportsPage />
               </ProtectedRoute>
             } />
+            <Route path="inventario" element={<InventoryPage />} />
             <Route path="configuracion" element={<SettingsPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/login" replace />} />

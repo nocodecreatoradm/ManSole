@@ -3,9 +3,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../lib/api'
 import type { MsActivo } from '../../lib/types'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, Search, Cog, X, Filter, Eye, Edit3, Info, Wrench } from 'lucide-react'
+import { Plus, Search, Cog, X, Filter, Eye, Edit3, Info, Wrench, QrCode, Download, Printer } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuthStore } from '../../store/authStore'
+import { QRCodeSVG } from 'qrcode.react'
 
 export default function AssetsPage() {
   const queryClient = useQueryClient()
@@ -253,7 +254,52 @@ export default function AssetsPage() {
                       <button className={`tab-btn ${activeTab === 'info' ? 'active' : ''}`} onClick={() => setActiveTab('info')}>Información</button>
                       <button className={`tab-btn ${activeTab === 'parts' ? 'active' : ''}`} onClick={() => setActiveTab('parts')}>Partes</button>
                       <button className={`tab-btn ${activeTab === 'components' ? 'active' : ''}`} onClick={() => setActiveTab('components')} disabled={!selectedPartId}>Componentes</button>
+                      <button className={`tab-btn ${activeTab === 'qr' ? 'active' : ''}`} onClick={() => setActiveTab('qr')}>Código QR</button>
                     </div>
+
+                    {activeTab === 'qr' && (
+                      <div className="drawer-section" style={{ textAlign: 'center', padding: '20px 0' }}>
+                        <div style={{ background: 'white', padding: 24, borderRadius: 16, display: 'inline-block', marginBottom: 20, boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1)' }}>
+                          <QRCodeSVG 
+                            id="asset-qr-code"
+                            value={selectedActivo.id} 
+                            size={200}
+                            level="H"
+                            includeMargin={true}
+                          />
+                        </div>
+                        <h3 style={{ marginBottom: 8 }}>{selectedActivo.codigo}</h3>
+                        <p className="text-muted" style={{ marginBottom: 24 }}>Escanea este código para identificar el activo rápidamente.</p>
+                        
+                        <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
+                          <button className="btn btn-secondary" onClick={() => {
+                            const svg = document.getElementById('asset-qr-code');
+                            if (svg) {
+                              const svgData = new XMLSerializer().serializeToString(svg);
+                              const canvas = document.createElement("canvas");
+                              const ctx = canvas.getContext("2d");
+                              const img = new Image();
+                              img.onload = () => {
+                                canvas.width = img.width;
+                                canvas.height = img.height;
+                                ctx?.drawImage(img, 0, 0);
+                                const pngFile = canvas.toDataURL("image/png");
+                                const downloadLink = document.createElement("a");
+                                downloadLink.download = `QR-${selectedActivo.codigo}.png`;
+                                downloadLink.href = pngFile;
+                                downloadLink.click();
+                              };
+                              img.src = "data:image/svg+xml;base64," + btoa(svgData);
+                            }
+                          }}>
+                            <Download size={16} /> Descargar PNG
+                          </button>
+                          <button className="btn btn-secondary" onClick={() => window.print()}>
+                            <Printer size={16} /> Imprimir Etiquetas
+                          </button>
+                        </div>
+                      </div>
+                    )}
 
                     {activeTab === 'info' && (
                       <>

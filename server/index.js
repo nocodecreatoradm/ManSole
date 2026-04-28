@@ -35,6 +35,8 @@ const workRequestsRoutes = require('./routes/work-requests');
 const workOrdersRoutes = require('./routes/work-orders');
 const reportsRoutes = require('./routes/reports');
 const analyticsRoutes = require('./routes/analytics');
+const preventiveRoutes = require('./routes/preventive');
+const inventoryRoutes = require('./routes/inventory');
 
 // Register API Routes
 app.use('/api/auth', authRoutes);
@@ -44,6 +46,8 @@ app.use('/api/work-requests', workRequestsRoutes);
 app.use('/api/work-orders', workOrdersRoutes);
 app.use('/api/reports', reportsRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/preventive', preventiveRoutes);
+app.use('/api/inventory', inventoryRoutes);
 
 // SPA Catchall - must be AFTER all other routes
 app.get(/.*/, (req, res) => {
@@ -62,6 +66,10 @@ app.use((err, req, res, next) => {
     res.status(500).json({ error: 'Internal Server Error' });
 });
 
+const { setupCronTasks } = require('./services/preventiveTask');
+
 app.listen(port, () => {
     console.log(`Server running on port ${port}`);
+    // Start automation tasks
+    setupCronTasks();
 });
