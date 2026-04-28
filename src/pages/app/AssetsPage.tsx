@@ -1,41 +1,122 @@
-import { useEffect, useState, useMemo } from 'react'
-import { supabase, type MsActivo, type MsArea, type MsCategoriaActivo } from '../../lib/supabase'
+import { useState, useMemo } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { api } from '../../lib/api'
+import type { MsActivo } from '../../lib/types'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, Search, Cog, X, Filter, Eye } from 'lucide-react'
+import { Plus, Search, Cog, X, Filter, Eye, Edit3, Info, Wrench } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuthStore } from '../../store/authStore'
 
 export default function AssetsPage() {
+  const queryClient = useQueryClient()
   const { profile } = useAuthStore()
-  const [activos, setActivos] = useState<MsActivo[]>([])
-  const [areas, setAreas] = useState<MsArea[]>([])
-  const [categorias, setCategorias] = useState<MsCategoriaActivo[]>([])
-  const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [filterEstado, setFilterEstado] = useState('')
-  const [showModal, setShowModal] = useState(false)
-  const [showDetailModal, setShowDetailModal] = useState(false)
+  
+  // Queries
+  const { data: activos = [], isLoading } = useQuery({
+    queryKey: ['assets'],
+    queryFn: async () => {
+      const { data, error } = await api.assets.getAll()
+      if (error) throw new Error(error)
+      return data || []
+    }
+  })
+
+  const { data: areas = [] } = useQuery({
+    queryKey: ['areas'],
+    queryFn: async () => {
+      const { data, error } = await api.areas.getAll()
+      if (error) throw new Error(error)
+      return data || []
+    }
+  })
+
+  const { data: categorias = [] } = useQuery({
+    queryKey: ['categories'],
+    queryFn: async () => {
+      const { data, error } = await api.categorias.getAll()
+      if (error) throw new Error(error)
+      return data || []
+    }
+  })
+
+  // Mutations
+  const saveMutation = useMutation({
+    mutationFn: async (payload: any) => {
+      if (isEditing && selectedActivo) {
+        const { error } = await api.assets.update(selectedActivo.id, payload)
+        if (error) throw new Error(error)
+      } else {
+        const { error } = await api.assets.create(payload)
+        if (error) throw new Error(error)
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['assets'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] })
+      toast.success(isEditing ? 'Activo actualizado' : 'Activo creado')
+      setShowDrawer(false)
+    },
+    onError: (err: Error) => {
+      toast.error(err.message)
+    }
+  })
+
+  // Drawer state
+  const [showDrawer, setShowDrawer] = useState(false)
+  const [drawerMode, setDrawerMode] = useState<'detail' | 'form'>('detail')
   const [selectedActivo, setSelectedActivo] = useState<MsActivo | null>(null)
-  const [editMode, setEditMode] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [activeTab, setActiveTab] = useState<'info' | 'parts' | 'components'>('info')
+  const [selectedPartId, setSelectedPartId] = useState<string | null>(null)
+
+  // Sub-queries
+  const { data: partes = [], refetch: refetchPartes } = useQuery({
+    queryKey: ['asset-parts', selectedActivo?.id],
+    queryFn: async () => {
+      if (!selectedActivo) return []
+      const { data, error } = await api.assets.getParts(selectedActivo.id)
+      if (error) throw new Error(error)
+      return data || []
+    },
+    enabled: !!selectedActivo && showDrawer && drawerMode === 'detail'
+  })
+
+  const { data: componentes = [], refetch: refetchComponentes } = useQuery({
+    queryKey: ['part-components', selectedPartId],
+    queryFn: async () => {
+      if (!selectedPartId) return []
+      const { data, error } = await api.assets.getPartComponents(selectedPartId)
+      if (error) throw new Error(error)
+      return data || []
+    },
+    enabled: !!selectedPartId && showDrawer && activeTab === 'components'
+  })
+
+  // Sub-mutations
+  const createPartMutation = useMutation({
+    mutationFn: (payload: any) => api.assets.createPart(selectedActivo!.id, payload),
+    onSuccess: () => {
+      refetchPartes()
+      toast.success('Parte agregada')
+    }
+  })
+
+  const createComponentMutation = useMutation({
+    mutationFn: (payload: any) => api.assets.createPartComponent(selectedPartId!, payload),
+    onSuccess: () => {
+      refetchComponentes()
+      toast.success('Componente agregado')
+    }
+  })
 
   // Form state
-  const [form, setForm] = useState({ codigo: '', nombre: '', descripcion: '', area_id: '', categoria_id: '', marca: '', modelo: '', numero_serie: '', estado: 'operativo' as string, prioridad_criticidad: 'media' as string })
-
-  useEffect(() => { loadData() }, [])
-
-  const loadData = async () => {
-    try {
-      const [{ data: a }, { data: ar }, { data: c }] = await Promise.all([
-        supabase.from('ms_activos').select('*, area:ms_areas(nombre, planta:ms_plantas(nombre)), categoria:ms_categorias_activos(nombre)').order('created_at', { ascending: false }),
-        supabase.from('ms_areas').select('*, planta:ms_plantas(nombre)').eq('is_active', true),
-        supabase.from('ms_categorias_activos').select('*'),
-      ])
-      if (a) setActivos(a as unknown as MsActivo[])
-      if (ar) setAreas(ar as unknown as MsArea[])
-      if (c) setCategorias(c)
-    } catch { toast.error('Error cargando datos') }
-    finally { setLoading(false) }
-  }
+  const [form, setForm] = useState({ 
+    codigo: '', nombre: '', descripcion: '', area_id: '', categoria_id: '', 
+    marca: '', modelo: '', numero_serie: '', estado: 'operativo' as string, 
+    prioridad_criticidad: 'media' as string 
+  })
 
   const filtered = useMemo(() => {
     return activos.filter(a => {
@@ -45,74 +126,66 @@ export default function AssetsPage() {
     })
   }, [activos, search, filterEstado])
 
-  const handleSave = async () => {
+  const handleSave = () => {
     if (!form.codigo || !form.nombre || !form.area_id) { toast.error('Completa los campos obligatorios'); return }
-    try {
-      if (editMode && selectedActivo) {
-        const { error } = await supabase.from('ms_activos').update({ ...form, updated_at: new Date().toISOString() }).eq('id', selectedActivo.id)
-        if (error) throw error
-        toast.success('Activo actualizado')
-      } else {
-        const { error } = await supabase.from('ms_activos').insert([form])
-        if (error) throw error
-        toast.success('Activo creado')
-      }
-      setShowModal(false)
-      resetForm()
-      loadData()
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Error al guardar')
-    }
+    saveMutation.mutate(form)
   }
 
-  const resetForm = () => {
-    setForm({ codigo: '', nombre: '', descripcion: '', area_id: '', categoria_id: '', marca: '', modelo: '', numero_serie: '', estado: 'operativo', prioridad_criticidad: 'media' })
-    setEditMode(false)
-    setSelectedActivo(null)
-  }
-
-  const openEdit = (activo: MsActivo) => {
-    setForm({
-      codigo: activo.codigo, nombre: activo.nombre, descripcion: activo.descripcion || '',
-      area_id: activo.area_id, categoria_id: activo.categoria_id || '', marca: activo.marca || '',
-      modelo: activo.modelo || '', numero_serie: activo.numero_serie || '',
-      estado: activo.estado, prioridad_criticidad: activo.prioridad_criticidad,
+  const openNew = () => {
+    setForm({ 
+      codigo: '', nombre: '', descripcion: '', area_id: '', categoria_id: '', 
+      marca: '', modelo: '', numero_serie: '', estado: 'operativo', 
+      prioridad_criticidad: 'media' 
     })
-    setSelectedActivo(activo)
-    setEditMode(true)
-    setShowModal(true)
+    setIsEditing(false)
+    setDrawerMode('form')
+    setShowDrawer(true)
   }
 
   const openDetail = (activo: MsActivo) => {
     setSelectedActivo(activo)
-    setShowDetailModal(true)
+    setDrawerMode('detail')
+    setShowDrawer(true)
+  }
+
+  const openEditFromDetail = () => {
+    if (!selectedActivo) return
+    setForm({
+      codigo: selectedActivo.codigo, nombre: selectedActivo.nombre, 
+      descripcion: selectedActivo.descripcion || '',
+      area_id: selectedActivo.area_id, categoria_id: selectedActivo.categoria_id || '', 
+      marca: selectedActivo.marca || '', modelo: selectedActivo.modelo || '', 
+      numero_serie: selectedActivo.numero_serie || '',
+      estado: selectedActivo.estado, prioridad_criticidad: selectedActivo.prioridad_criticidad,
+    })
+    setIsEditing(true)
+    setDrawerMode('form')
   }
 
   const isAdmin = profile?.role === 'admin' || profile?.role === 'supervisor'
 
-  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}><div className="spinner" style={{ width: 40, height: 40 }} /></div>
+  if (isLoading) return <div className="loading-container"><div className="spinner" /></div>
 
   return (
-    <div>
+    <div className="animate-fade-in">
       <div className="page-header">
         <div>
           <h1>Gestión de Activos</h1>
-          <p>Registro y seguimiento de equipos y maquinaria</p>
+          <p>Registro y seguimiento de equipos y maquinaria — <strong>Inline / Detail / Form</strong></p>
         </div>
         {isAdmin && (
-          <button className="btn btn-primary" onClick={() => { resetForm(); setShowModal(true) }}>
+          <button className="btn btn-primary" onClick={openNew}>
             <Plus size={18} /> Nuevo Activo
           </button>
         )}
       </div>
 
-      {/* Filters */}
       <div className="filters-bar">
-        <div className="search-input" style={{ position: 'relative', flex: 1, minWidth: 200 }}>
-          <Search size={18} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-          <input className="input-field" placeholder="Buscar por nombre o código..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ paddingLeft: 42 }} />
+        <div className="search-input">
+          <Search size={18} />
+          <input className="input-field" placeholder="Buscar por nombre o código..." value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <Filter size={16} style={{ color: 'var(--text-muted)' }} />
           <select className="input-field" value={filterEstado} onChange={(e) => setFilterEstado(e.target.value)} style={{ width: 200 }}>
             <option value="">Todos los estados</option>
@@ -124,7 +197,6 @@ export default function AssetsPage() {
         </div>
       </div>
 
-      {/* Table */}
       <div className="glass-card" style={{ overflow: 'hidden' }}>
         {filtered.length === 0 ? (
           <div className="empty-state">
@@ -139,7 +211,6 @@ export default function AssetsPage() {
                 <th>Código</th>
                 <th>Nombre</th>
                 <th>Área</th>
-                <th>Categoría</th>
                 <th>Estado</th>
                 <th>Criticidad</th>
                 <th>Acciones</th>
@@ -147,18 +218,16 @@ export default function AssetsPage() {
             </thead>
             <tbody>
               {filtered.map((activo: any) => (
-                <tr key={activo.id}>
-                  <td><span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, fontSize: 13 }}>{activo.codigo}</span></td>
+                <tr key={activo.id} className="row-hover" onClick={() => openDetail(activo)} style={{ cursor: 'pointer' }}>
+                  <td><span className="font-mono">{activo.codigo}</span></td>
                   <td style={{ fontWeight: 600 }}>{activo.nombre}</td>
-                  <td style={{ color: 'var(--text-secondary)', fontSize: 13 }}>{activo.area?.nombre || '—'}</td>
-                  <td style={{ color: 'var(--text-secondary)', fontSize: 13 }}>{activo.categoria?.nombre || '—'}</td>
+                  <td style={{ color: 'var(--text-secondary)' }}>{activo.area_nombre || '—'}</td>
                   <td><span className={`badge badge-${activo.estado.replace(/_/g, '-')}`}>{activo.estado.replace(/_/g, ' ')}</span></td>
                   <td><span className={`badge badge-${activo.prioridad_criticidad}`}>{activo.prioridad_criticidad}</span></td>
                   <td>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      <button className="btn btn-ghost btn-sm" onClick={() => openDetail(activo)}><Eye size={16} /></button>
-                      {isAdmin && <button className="btn btn-ghost btn-sm" onClick={() => openEdit(activo)}>Editar</button>}
-                    </div>
+                    <button className="btn btn-ghost btn-sm btn-icon" onClick={(e) => { e.stopPropagation(); openDetail(activo) }}>
+                      <Eye size={16} />
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -167,106 +236,208 @@ export default function AssetsPage() {
         )}
       </div>
 
-      {/* Create/Edit Modal */}
       <AnimatePresence>
-        {showModal && (
-          <motion.div className="modal-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowModal(false)}>
-            <motion.div className="modal-content" initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }} onClick={(e) => e.stopPropagation()} style={{ maxWidth: 620 }}>
-              <div className="modal-header">
-                <h2>{editMode ? 'Editar Activo' : 'Nuevo Activo'}</h2>
-                <button className="btn btn-ghost btn-icon" onClick={() => setShowModal(false)}><X size={20} /></button>
+        {showDrawer && (
+          <motion.div className="drawer-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowDrawer(false)}>
+            <motion.div className="drawer-content slide-in-right" initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} transition={{ type: 'spring', damping: 25, stiffness: 200 }} onClick={(e) => e.stopPropagation()}>
+              
+              <div className="drawer-header">
+                <h2>{drawerMode === 'detail' ? 'Detalle del Activo' : (isEditing ? 'Editar Activo' : 'Nuevo Activo')}</h2>
+                <button className="btn btn-ghost btn-icon" onClick={() => setShowDrawer(false)}><X size={20} /></button>
               </div>
-              <div className="modal-body">
-                <div className="grid-2">
-                  <div className="input-group">
-                    <label>Código *</label>
-                    <input className="input-field" placeholder="EQ-001" value={form.codigo} onChange={(e) => setForm({ ...form, codigo: e.target.value })} />
-                  </div>
-                  <div className="input-group">
-                    <label>Nombre *</label>
-                    <input className="input-field" placeholder="Bomba centrífuga #1" value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} />
-                  </div>
-                </div>
-                <div className="input-group">
-                  <label>Descripción</label>
-                  <textarea className="input-field" placeholder="Descripción del equipo..." value={form.descripcion} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} style={{ minHeight: 70 }} />
-                </div>
-                <div className="grid-2">
-                  <div className="input-group">
-                    <label>Área *</label>
-                    <select className="input-field" value={form.area_id} onChange={(e) => setForm({ ...form, area_id: e.target.value })}>
-                      <option value="">Seleccionar área</option>
-                      {areas.map((a: any) => <option key={a.id} value={a.id}>{a.planta?.nombre} — {a.nombre}</option>)}
-                    </select>
-                  </div>
-                  <div className="input-group">
-                    <label>Categoría</label>
-                    <select className="input-field" value={form.categoria_id} onChange={(e) => setForm({ ...form, categoria_id: e.target.value })}>
-                      <option value="">Seleccionar categoría</option>
-                      {categorias.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-                    </select>
-                  </div>
-                </div>
-                <div className="grid-3">
-                  <div className="input-group"><label>Marca</label><input className="input-field" value={form.marca} onChange={(e) => setForm({ ...form, marca: e.target.value })} /></div>
-                  <div className="input-group"><label>Modelo</label><input className="input-field" value={form.modelo} onChange={(e) => setForm({ ...form, modelo: e.target.value })} /></div>
-                  <div className="input-group"><label>N° Serie</label><input className="input-field" value={form.numero_serie} onChange={(e) => setForm({ ...form, numero_serie: e.target.value })} /></div>
-                </div>
-                <div className="grid-2">
-                  <div className="input-group">
-                    <label>Estado</label>
-                    <select className="input-field" value={form.estado} onChange={(e) => setForm({ ...form, estado: e.target.value })}>
-                      <option value="operativo">Operativo</option>
-                      <option value="en_mantenimiento">En Mantenimiento</option>
-                      <option value="fuera_de_servicio">Fuera de Servicio</option>
-                      <option value="dado_de_baja">Dado de Baja</option>
-                    </select>
-                  </div>
-                  <div className="input-group">
-                    <label>Criticidad</label>
-                    <select className="input-field" value={form.prioridad_criticidad} onChange={(e) => setForm({ ...form, prioridad_criticidad: e.target.value })}>
-                      <option value="critica">Crítica</option>
-                      <option value="alta">Alta</option>
-                      <option value="media">Media</option>
-                      <option value="baja">Baja</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-              <div className="modal-footer">
-                <button className="btn btn-secondary" onClick={() => setShowModal(false)}>Cancelar</button>
-                <button className="btn btn-primary" onClick={handleSave}>{editMode ? 'Guardar Cambios' : 'Crear Activo'}</button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
-      {/* Detail Modal */}
-      <AnimatePresence>
-        {showDetailModal && selectedActivo && (
-          <motion.div className="modal-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowDetailModal(false)}>
-            <motion.div className="modal-content" initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }} onClick={(e) => e.stopPropagation()} style={{ maxWidth: 560 }}>
-              <div className="modal-header">
-                <h2>Detalle del Activo</h2>
-                <button className="btn btn-ghost btn-icon" onClick={() => setShowDetailModal(false)}><X size={20} /></button>
-              </div>
-              <div className="modal-body" style={{ gap: 0 }}>
-                {[
-                  ['Código', selectedActivo.codigo],
-                  ['Nombre', selectedActivo.nombre],
-                  ['Descripción', selectedActivo.descripcion || '—'],
-                  ['Marca / Modelo', `${selectedActivo.marca || '—'} / ${selectedActivo.modelo || '—'}`],
-                  ['N° Serie', selectedActivo.numero_serie || '—'],
-                  ['Estado', selectedActivo.estado.replace(/_/g, ' ')],
-                  ['Criticidad', selectedActivo.prioridad_criticidad],
-                ].map(([label, value]) => (
-                  <div className="detail-row" key={label as string}>
-                    <span className="detail-label">{label}</span>
-                    <span className="detail-value">{value}</span>
+              <div className="drawer-body">
+                {drawerMode === 'detail' && selectedActivo ? (
+                  <>
+                    <div className="tabs-container" style={{ marginBottom: 24 }}>
+                      <button className={`tab-btn ${activeTab === 'info' ? 'active' : ''}`} onClick={() => setActiveTab('info')}>Información</button>
+                      <button className={`tab-btn ${activeTab === 'parts' ? 'active' : ''}`} onClick={() => setActiveTab('parts')}>Partes</button>
+                      <button className={`tab-btn ${activeTab === 'components' ? 'active' : ''}`} onClick={() => setActiveTab('components')} disabled={!selectedPartId}>Componentes</button>
+                    </div>
+
+                    {activeTab === 'info' && (
+                      <>
+                        <div className="drawer-section">
+                      <div className="drawer-section-title"><Info size={14} /> Información General</div>
+                      <div className="detail-row">
+                        <span className="detail-label">Código</span>
+                        <span className="detail-value font-mono">{selectedActivo.codigo}</span>
+                      </div>
+                      <div className="detail-row">
+                        <span className="detail-label">Nombre</span>
+                        <span className="detail-value">{selectedActivo.nombre}</span>
+                      </div>
+                      <div className="detail-row">
+                        <span className="detail-label">Descripción</span>
+                        <span className="detail-value">{selectedActivo.descripcion || '—'}</span>
+                      </div>
+                    </div>
+
+                    <div className="drawer-section">
+                      <div className="drawer-section-title"><Cog size={14} /> Especificaciones</div>
+                      <div className="grid-2">
+                        <div className="detail-row">
+                          <span className="detail-label">Marca</span>
+                          <span className="detail-value">{selectedActivo.marca || '—'}</span>
+                        </div>
+                        <div className="detail-row">
+                          <span className="detail-label">Modelo</span>
+                          <span className="detail-value">{selectedActivo.modelo || '—'}</span>
+                        </div>
+                      </div>
+                      <div className="detail-row">
+                        <span className="detail-label">N° Serie</span>
+                        <span className="detail-value">{selectedActivo.numero_serie || '—'}</span>
+                      </div>
+                    </div>
+
+                    <div className="drawer-section">
+                      <div className="drawer-section-title"><Filter size={14} /> Clasificación</div>
+                      <div className="detail-row">
+                        <span className="detail-label">Estado</span>
+                        <span className={`badge badge-${selectedActivo.estado.replace(/_/g, '-')}`}>{selectedActivo.estado.replace(/_/g, ' ')}</span>
+                      </div>
+                      <div className="detail-row">
+                        <span className="detail-label">Criticidad</span>
+                        <span className={`badge badge-${selectedActivo.prioridad_criticidad}`}>{selectedActivo.prioridad_criticidad}</span>
+                      </div>
+                      <div className="detail-row">
+                        <span className="detail-label">Categoría</span>
+                        <span>{(selectedActivo as any).categoria_nombre || 'Sin categoría'}</span>
+                      </div>
+                    </div>
+                    </>
+                    )}
+
+                    {activeTab === 'parts' && (
+                      <div className="drawer-section">
+                        <div className="drawer-section-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span><Cog size={14} /> Partes del Activo</span>
+                          <button className="btn btn-primary btn-sm" onClick={() => {
+                            const name = prompt('Nombre de la parte')
+                            const code = prompt('Código de la parte')
+                            if (name && code) createPartMutation.mutate({ nombre: name, codigo: code })
+                          }}>+ Agregar</button>
+                        </div>
+                        <div className="list-container" style={{ marginTop: 12 }}>
+                          {partes.length === 0 ? <p className="text-muted">No hay partes registradas.</p> : (
+                            partes.map(p => (
+                              <div key={p.id} 
+                                className={`list-item ${selectedPartId === p.id ? 'active' : ''}`} 
+                                onClick={() => { setSelectedPartId(p.id); setActiveTab('components') }}
+                                style={{ padding: '12px', borderRadius: '8px', border: '1px solid var(--border-default)', marginBottom: '8px', cursor: 'pointer' }}
+                              >
+                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                  <strong>{p.nombre}</strong>
+                                  <span className="font-mono text-sm">{p.codigo}</span>
+                                </div>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {activeTab === 'components' && (
+                      <div className="drawer-section">
+                        <div className="drawer-section-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span><Wrench size={14} /> Componentes de la Parte</span>
+                          <button className="btn btn-primary btn-sm" onClick={() => {
+                            const name = prompt('Nombre del componente')
+                            const code = prompt('Código del componente')
+                            if (name && code) createComponentMutation.mutate({ nombre: name, codigo: code })
+                          }}>+ Agregar</button>
+                        </div>
+                        <div className="list-container" style={{ marginTop: 12 }}>
+                          {componentes.length === 0 ? <p className="text-muted">No hay componentes en esta parte.</p> : (
+                            componentes.map(c => (
+                              <div key={c.id} style={{ padding: '12px', borderRadius: '8px', border: '1px solid var(--border-default)', marginBottom: '8px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                  <strong>{c.nombre}</strong>
+                                  <span className="font-mono text-sm">{c.codigo}</span>
+                                </div>
+                                {c.numero_parte && <p className="text-xs text-muted" style={{ marginTop: 4 }}>N° Parte: {c.numero_parte}</p>}
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                    <div className="grid-2">
+                      <div className="input-group">
+                        <label>Código *</label>
+                        <input className="input-field" placeholder="EQ-001" value={form.codigo} onChange={(e) => setForm({ ...form, codigo: e.target.value })} />
+                      </div>
+                      <div className="input-group">
+                        <label>Nombre *</label>
+                        <input className="input-field" placeholder="Nombre del activo" value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} />
+                      </div>
+                    </div>
+                    
+                    <div className="input-group">
+                      <label>Descripción</label>
+                      <textarea className="input-field" placeholder="Descripción detallada..." value={form.descripcion} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} style={{ minHeight: 80 }} />
+                    </div>
+
+                    <div className="grid-2">
+                      <div className="input-group">
+                        <label>Área *</label>
+                        <select className="input-field" value={form.area_id} onChange={(e) => setForm({ ...form, area_id: e.target.value })}>
+                          <option value="">Seleccionar área</option>
+                          {areas.map((a: any) => <option key={a.id} value={a.id}>{a.planta_nombre} — {a.nombre}</option>)}
+                        </select>
+                      </div>
+                      <div className="input-group">
+                        <label>Categoría</label>
+                        <select className="input-field" value={form.categoria_id} onChange={(e) => setForm({ ...form, categoria_id: e.target.value })}>
+                          <option value="">Seleccionar categoría</option>
+                          {categorias.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="grid-3">
+                      <div className="input-group"><label>Marca</label><input className="input-field" value={form.marca} onChange={(e) => setForm({ ...form, marca: e.target.value })} /></div>
+                      <div className="input-group"><label>Modelo</label><input className="input-field" value={form.modelo} onChange={(e) => setForm({ ...form, modelo: e.target.value })} /></div>
+                      <div className="input-group"><label>N° Serie</label><input className="input-field" value={form.numero_serie} onChange={(e) => setForm({ ...form, numero_serie: e.target.value })} /></div>
+                    </div>
+
+                    <div className="grid-2">
+                      <div className="input-group">
+                        <label>Estado</label>
+                        <select className="input-field" value={form.estado} onChange={(e) => setForm({ ...form, estado: e.target.value })}>
+                          <option value="operativo">Operativo</option>
+                          <option value="en_mantenimiento">En Mantenimiento</option>
+                          <option value="fuera_de_servicio">Fuera de Servicio</option>
+                          <option value="dado_de_baja">Dado de Baja</option>
+                        </select>
+                      </div>
+                      <div className="input-group">
+                        <label>Criticidad</label>
+                        <select className="input-field" value={form.prioridad_criticidad} onChange={(e) => setForm({ ...form, prioridad_criticidad: e.target.value })}>
+                          <option value="critica">Crítica</option>
+                          <option value="alta">Alta</option>
+                          <option value="media">Media</option>
+                          <option value="baja">Baja</option>
+                        </select>
+                      </div>
+                    </div>
                   </div>
-                ))}
+                )}
               </div>
+
+              <div className="drawer-footer">
+                <button className="btn btn-secondary" onClick={() => setShowDrawer(false)}>Cerrar</button>
+                {drawerMode === 'detail' ? (
+                  isAdmin && <button className="btn btn-primary" onClick={openEditFromDetail}><Edit3 size={16} /> Editar</button>
+                ) : (
+                  <button className="btn btn-primary" onClick={handleSave}>{isEditing ? 'Guardar Cambios' : 'Crear Activo'}</button>
+                )}
+              </div>
+
             </motion.div>
           </motion.div>
         )}

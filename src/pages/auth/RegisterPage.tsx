@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
+import { api } from '../../lib/api'
 import { motion } from 'framer-motion'
 import { UserPlus, Mail, Lock, User, Eye, EyeOff } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -21,18 +21,8 @@ export default function RegisterPage() {
     }
     setLoading(true)
     try {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            full_name: fullName,
-            app: 'mansole',
-            ms_role: 'operador',
-          },
-        },
-      })
-      if (error) throw error
+      const { error } = await api.auth.register({ email, password, fullName })
+      if (error) throw new Error(error)
       toast.success('¡Cuenta creada! Inicia sesión para continuar.')
       navigate('/login')
     } catch (err: unknown) {

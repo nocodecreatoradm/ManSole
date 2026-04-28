@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
+import { api } from '../../lib/api'
 import { useAuthStore } from '../../store/authStore'
 import { motion } from 'framer-motion'
 import { LogIn, Mail, Lock, Eye, EyeOff } from 'lucide-react'
@@ -8,7 +8,7 @@ import toast from 'react-hot-toast'
 
 export default function LoginPage() {
   const navigate = useNavigate()
-  const { loadUserData } = useAuthStore()
+  const { setProfile } = useAuthStore()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -18,11 +18,13 @@ export default function LoginPage() {
     e.preventDefault()
     setLoading(true)
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password })
-      if (error) throw error
-      await loadUserData()
-      toast.success('¡Bienvenido a ManSole!')
-      navigate('/app/dashboard')
+      const { data, error } = await api.auth.login(email, password)
+      if (error) throw new Error(error)
+      if (data) {
+        setProfile(data)
+        toast.success('¡Bienvenido a ManSole!')
+        navigate('/app/dashboard')
+      }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Error al iniciar sesión'
       toast.error(msg)

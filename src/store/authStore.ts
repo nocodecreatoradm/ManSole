@@ -1,13 +1,14 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { supabase, type MsProfile } from '../lib/supabase'
+import { api } from '../lib/api'
+import type { MsProfile } from '../lib/types'
 
 interface AuthState {
   profile: MsProfile | null
   loading: boolean
   setProfile: (profile: MsProfile | null) => void
   setLoading: (v: boolean) => void
-  loadUserData: (silent?: boolean) => Promise<void>
+  loadUserData: () => Promise<void>
   signOut: () => Promise<void>
 }
 
@@ -20,26 +21,10 @@ export const useAuthStore = create<AuthState>()(
       setProfile: (profile) => set({ profile }),
       setLoading: (loading) => set({ loading }),
 
-      loadUserData: async (silent = false) => {
-        if (!silent) set({ loading: true })
+      loadUserData: async () => {
+        set({ loading: true })
         try {
-          const { data: { user } } = await supabase.auth.getUser()
-          if (!user) {
-            set({ profile: null, loading: false })
-            return
-          }
-
-          const { data: profile } = await supabase
-            .from('ms_profiles')
-            .select('*')
-            .eq('id', user.id)
-            .single()
-
-          if (!profile) {
-            set({ profile: null, loading: false })
-            return
-          }
-
+          const { data: profile } = await api.auth.me()
           set({ profile, loading: false })
         } catch {
           set({ profile: null, loading: false })
@@ -47,7 +32,7 @@ export const useAuthStore = create<AuthState>()(
       },
 
       signOut: async () => {
-        await supabase.auth.signOut()
+        await api.auth.logout()
         set({ profile: null })
       },
     }),

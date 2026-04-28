@@ -1,24 +1,34 @@
 import { useEffect, useState } from 'react'
-import { supabase, type MsPlanta, type MsArea } from '../../lib/supabase'
+import { api } from '../../lib/api'
+import type { MsPlanta, MsArea } from '../../lib/types'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, Factory, MapPin, X, Trash2 } from 'lucide-react'
+import { Plus, Factory, MapPin, X, Trash2, Building } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { useAuthStore } from '../../store/authStore'
 
 export default function PlantasPage() {
+  const { profile } = useAuthStore()
   const [plantas, setPlantas] = useState<(MsPlanta & { areas: MsArea[] })[]>([])
   const [loading, setLoading] = useState(true)
-  const [showPlantaModal, setShowPlantaModal] = useState(false)
-  const [showAreaModal, setShowAreaModal] = useState(false)
-  const [selectedPlantaId, setSelectedPlantaId] = useState('')
+  
+  // Drawer state
+  const [showDrawer, setShowDrawer] = useState(false)
+  const [drawerType, setDrawerType] = useState<'planta' | 'area'>('planta')
+  const [isEditing, setIsEditing] = useState(false)
+  const [selectedPlanta] = useState<MsPlanta | null>(null)
+
+  // Forms
   const [plantaForm, setPlantaForm] = useState({ nombre: '', direccion: '' })
-  const [areaForm, setAreaForm] = useState({ nombre: '', descripcion: '' })
+  const [areaForm, setAreaForm] = useState({ nombre: '', descripcion: '', planta_id: '' })
 
   useEffect(() => { loadData() }, [])
 
   const loadData = async () => {
     try {
-      const { data: p } = await supabase.from('ms_plantas').select('*').eq('is_active', true).order('nombre')
-      const { data: a } = await supabase.from('ms_areas').select('*').eq('is_active', true).order('nombre')
+      const [{ data: p }, { data: a }] = await Promise.all([
+        api.plantas.getAll(),
+        api.areas.getAll()
+      ])
       if (p && a) {
         const plantasWithAreas = p.map(planta => ({
           ...planta,
@@ -30,120 +40,178 @@ export default function PlantasPage() {
     finally { setLoading(false) }
   }
 
-  const handleCreatePlanta = async () => {
+  const handleSavePlanta = async () => {
     if (!plantaForm.nombre) { toast.error('El nombre es obligatorio'); return }
     try {
-      const { error } = await supabase.from('ms_plantas').insert([plantaForm])
-      if (error) throw error
-      toast.success('Planta creada')
-      setShowPlantaModal(false)
-      setPlantaForm({ nombre: '', direccion: '' })
+      if (isEditing && selectedPlanta) {
+        // Update not implemented in API yet, but we'll follow the pattern
+        toast.error('Actualización de planta no disponible aún')
+      } else {
+        const { error } = await api.plantas.create(plantaForm)
+        if (error) throw new Error(error)
+        toast.success('Planta creada')
+      }
+      setShowDrawer(false)
       loadData()
-    } catch (err: unknown) { toast.error(err instanceof Error ? err.message : 'Error') }
+    } catch (err: any) {
+      toast.error(err.message || 'Error al guardar planta')
+    }
   }
 
-  const handleCreateArea = async () => {
-    if (!areaForm.nombre || !selectedPlantaId) { toast.error('Completa los campos'); return }
+  const handleSaveArea = async () => {
+    if (!areaForm.nombre || !areaForm.planta_id) { toast.error('Completa los campos'); return }
     try {
-      const { error } = await supabase.from('ms_areas').insert([{ ...areaForm, planta_id: selectedPlantaId }])
-      if (error) throw error
-      toast.success('Área creada')
-      setShowAreaModal(false)
-      setAreaForm({ nombre: '', descripcion: '' })
+      const { error } = await api.areas.create(areaForm)
+      if (error) throw new Error(error)
+      toast.success('Área guardada')
+      setShowDrawer(false)
       loadData()
-    } catch (err: unknown) { toast.error(err instanceof Error ? err.message : 'Error') }
+    } catch (err: any) {
+      toast.error(err.message || 'Error al guardar área')
+    }
+  }
+
+  const openNewPlanta = () => {
+    setPlantaForm({ nombre: '', direccion: '' })
+    setDrawerType('planta')
+    setIsEditing(false)
+    setShowDrawer(true)
+  }
+
+  const openNewArea = (plantaId: string) => {
+    setAreaForm({ nombre: '', descripcion: '', planta_id: plantaId })
+    setDrawerType('area')
+    setIsEditing(false)
+    setShowDrawer(true)
   }
 
   const handleDeleteArea = async (areaId: string) => {
     if (!confirm('¿Eliminar esta área?')) return
     try {
-      const { error } = await supabase.from('ms_areas').update({ is_active: false }).eq('id', areaId)
-      if (error) throw error
+      const { error } = await api.areas.delete(areaId)
+      if (error) throw new Error(error)
       toast.success('Área eliminada')
       loadData()
-    } catch (err: unknown) { toast.error(err instanceof Error ? err.message : 'Error') }
+    } catch (err: any) {
+      toast.error(err.message || 'Error al eliminar')
+    }
   }
 
-  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}><div className="spinner" style={{ width: 40, height: 40 }} /></div>
+  const isAdmin = profile?.role === 'admin' || profile?.role === 'supervisor'
+
+  if (loading) return <div className="loading-container"><div className="spinner" /></div>
 
   return (
-    <div>
+    <div className="animate-fade-in">
       <div className="page-header">
-        <div><h1>Plantas y Áreas</h1><p>Estructura organizacional de ubicaciones</p></div>
-        <button className="btn btn-primary" onClick={() => setShowPlantaModal(true)}><Plus size={18} /> Nueva Planta</button>
+        <div>
+          <h1>Plantas y Áreas</h1>
+          <p>Estructura organizacional de ubicaciones — <strong>Inline / Detail / Form</strong></p>
+        </div>
+        {isAdmin && <button className="btn btn-primary" onClick={openNewPlanta}><Plus size={18} /> Nueva Planta</button>}
       </div>
 
-      {plantas.length === 0 ? (
-        <div className="glass-card"><div className="empty-state"><div className="empty-icon"><Factory size={28} /></div><h3>Sin plantas registradas</h3><p>Crea tu primera planta para organizar la estructura de activos.</p></div></div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-          {plantas.map((planta) => (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+        {plantas.length === 0 ? (
+          <div className="glass-card">
+            <div className="empty-state">
+              <div className="empty-icon"><Factory size={28} /></div>
+              <h3>Sin plantas registradas</h3>
+              <p>Crea tu primera planta para organizar la estructura de activos.</p>
+            </div>
+          </div>
+        ) : (
+          plantas.map((planta) => (
             <motion.div key={planta.id} className="glass-card" style={{ padding: 28 }} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                  <div style={{ width: 44, height: 44, borderRadius: 'var(--radius-md)', background: 'var(--info-bg)', color: 'var(--info)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Factory size={22} />
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                  <div style={{ width: 48, height: 48, borderRadius: 'var(--radius-lg)', background: 'var(--info-bg)', color: 'var(--info)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Factory size={24} />
                   </div>
                   <div>
-                    <h3 style={{ fontSize: 18, fontWeight: 700 }}>{planta.nombre}</h3>
-                    {planta.direccion && <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>{planta.direccion}</p>}
+                    <h3 style={{ fontSize: 20, fontWeight: 700 }}>{planta.nombre}</h3>
+                    {planta.direccion && <p style={{ fontSize: 13, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}><MapPin size={12} /> {planta.direccion}</p>}
                   </div>
                 </div>
-                <button className="btn btn-secondary btn-sm" onClick={() => { setSelectedPlantaId(planta.id); setShowAreaModal(true) }}>
-                  <Plus size={14} /> Agregar Área
-                </button>
+                {isAdmin && (
+                  <button className="btn btn-secondary btn-sm" onClick={() => openNewArea(planta.id)}>
+                    <Plus size={14} /> Agregar Área
+                  </button>
+                )}
               </div>
 
               {planta.areas.length === 0 ? (
-                <p style={{ fontSize: 13, color: 'var(--text-muted)', padding: '12px 0' }}>Sin áreas registradas en esta planta</p>
+                <div style={{ background: 'var(--bg-surface-soft)', padding: '20px', borderRadius: 'var(--radius-md)', textAlign: 'center', border: '1px dashed var(--border-default)' }}>
+                  <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>Sin áreas registradas en esta planta</p>
+                </div>
               ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
                   {planta.areas.map((area) => (
-                    <div key={area.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-soft)', border: '1px solid var(--border-default)' }}>
-                      <MapPin size={16} style={{ color: 'var(--accent-cyan)', flexShrink: 0 }} />
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 14, fontWeight: 600 }}>{area.nombre}</div>
-                        {area.descripcion && <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{area.descripcion}</div>}
+                    <div key={area.id} className="area-card" style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '16px 20px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-soft)', border: '1px solid var(--border-default)', transition: 'all 0.2s ease' }}>
+                      <div style={{ width: 32, height: 32, borderRadius: 'var(--radius-sm)', background: 'var(--accent-cyan-bg)', color: 'var(--accent-cyan)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <Building size={16} />
                       </div>
-                      <button onClick={() => handleDeleteArea(area.id)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4 }}>
-                        <Trash2 size={14} />
-                      </button>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 15, fontWeight: 600 }}>{area.nombre}</div>
+                        {area.descripcion && <div style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{area.descripcion}</div>}
+                      </div>
+                      {isAdmin && (
+                        <button className="btn btn-ghost btn-sm btn-icon" onClick={() => handleDeleteArea(area.id)} style={{ color: 'var(--error)' }}>
+                          <Trash2 size={14} />
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
               )}
             </motion.div>
-          ))}
-        </div>
-      )}
-
-      {/* Planta Modal */}
-      <AnimatePresence>
-        {showPlantaModal && (
-          <motion.div className="modal-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowPlantaModal(false)}>
-            <motion.div className="modal-content" initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }} onClick={(e) => e.stopPropagation()}>
-              <div className="modal-header"><h2>Nueva Planta</h2><button className="btn btn-ghost btn-icon" onClick={() => setShowPlantaModal(false)}><X size={20} /></button></div>
-              <div className="modal-body">
-                <div className="input-group"><label>Nombre *</label><input className="input-field" placeholder="Ej: Planta Principal" value={plantaForm.nombre} onChange={(e) => setPlantaForm({ ...plantaForm, nombre: e.target.value })} /></div>
-                <div className="input-group"><label>Dirección</label><input className="input-field" placeholder="Ej: Av. Industrial 123" value={plantaForm.direccion} onChange={(e) => setPlantaForm({ ...plantaForm, direccion: e.target.value })} /></div>
-              </div>
-              <div className="modal-footer"><button className="btn btn-secondary" onClick={() => setShowPlantaModal(false)}>Cancelar</button><button className="btn btn-primary" onClick={handleCreatePlanta}>Crear Planta</button></div>
-            </motion.div>
-          </motion.div>
+          ))
         )}
-      </AnimatePresence>
+      </div>
 
-      {/* Area Modal */}
       <AnimatePresence>
-        {showAreaModal && (
-          <motion.div className="modal-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowAreaModal(false)}>
-            <motion.div className="modal-content" initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }} onClick={(e) => e.stopPropagation()}>
-              <div className="modal-header"><h2>Nueva Área</h2><button className="btn btn-ghost btn-icon" onClick={() => setShowAreaModal(false)}><X size={20} /></button></div>
-              <div className="modal-body">
-                <div className="input-group"><label>Nombre *</label><input className="input-field" placeholder="Ej: Línea de Producción 1" value={areaForm.nombre} onChange={(e) => setAreaForm({ ...areaForm, nombre: e.target.value })} /></div>
-                <div className="input-group"><label>Descripción</label><input className="input-field" placeholder="Descripción del área" value={areaForm.descripcion} onChange={(e) => setAreaForm({ ...areaForm, descripcion: e.target.value })} /></div>
+        {showDrawer && (
+          <motion.div className="drawer-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowDrawer(false)}>
+            <motion.div className="drawer-content slide-in-right" initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} transition={{ type: 'spring', damping: 25, stiffness: 200 }} onClick={(e) => e.stopPropagation()}>
+              
+              <div className="drawer-header">
+                <h2>{drawerType === 'planta' ? (isEditing ? 'Editar Planta' : 'Nueva Planta') : 'Nueva Área'}</h2>
+                <button className="btn btn-ghost btn-icon" onClick={() => setShowDrawer(false)}><X size={20} /></button>
               </div>
-              <div className="modal-footer"><button className="btn btn-secondary" onClick={() => setShowAreaModal(false)}>Cancelar</button><button className="btn btn-primary" onClick={handleCreateArea}>Crear Área</button></div>
+
+              <div className="drawer-body">
+                {drawerType === 'planta' ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                    <div className="input-group">
+                      <label>Nombre de la Planta *</label>
+                      <input className="input-field" placeholder="Ej: Planta Lurín" value={plantaForm.nombre} onChange={(e) => setPlantaForm({ ...plantaForm, nombre: e.target.value })} />
+                    </div>
+                    <div className="input-group">
+                      <label>Dirección</label>
+                      <input className="input-field" placeholder="Ej: Av. Industrial 456" value={plantaForm.direccion} onChange={(e) => setPlantaForm({ ...plantaForm, direccion: e.target.value })} />
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                    <div className="input-group">
+                      <label>Nombre del Área *</label>
+                      <input className="input-field" placeholder="Ej: Almacén de Repuestos" value={areaForm.nombre} onChange={(e) => setAreaForm({ ...areaForm, nombre: e.target.value })} />
+                    </div>
+                    <div className="input-group">
+                      <label>Descripción</label>
+                      <textarea className="input-field" placeholder="Descripción breve..." value={areaForm.descripcion} onChange={(e) => setAreaForm({ ...areaForm, descripcion: e.target.value })} style={{ minHeight: 100 }} />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="drawer-footer">
+                <button className="btn btn-secondary" onClick={() => setShowDrawer(false)}>Cancelar</button>
+                <button className="btn btn-primary" onClick={drawerType === 'planta' ? handleSavePlanta : handleSaveArea}>
+                  {isEditing ? 'Guardar Cambios' : 'Crear'}
+                </button>
+              </div>
+
             </motion.div>
           </motion.div>
         )}
