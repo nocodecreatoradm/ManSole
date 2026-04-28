@@ -1,3 +1,5 @@
+import { 
+  MsPerfil, MsActivo, MsTipoActivo, MsUbicacion, MsOrdenTrabajo, 
   MsParteActivo, MsComponenteParte, MsActividadOT, MsComponenteActividad,
   MsRepuesto, MsInventarioMovimiento
 } from './types'
