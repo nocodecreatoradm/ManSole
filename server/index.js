@@ -1,20 +1,31 @@
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 require('dotenv').config();
-const { poolPromise } = require('./db');
 
+// Initialize express app
 const app = express();
 const port = process.env.PORT || 4000;
 
+// Basic middleware
 app.use(cors());
 app.use(express.json());
 
-// Basic check
+// Path for static files
+// We use path.resolve to get an absolute path regardless of where the script is run from
+const distPath = path.resolve(process.cwd(), 'dist');
+console.log('Production: Serving static files from', distPath);
+
+// Serve static files BEFORE routes
+app.use(express.static(distPath));
+
+// Health check
 app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-const path = require('path');
+// Database connection
+const { poolPromise } = require('./db');
 
 // Import Routes
 const authRoutes = require('./routes/auth');
@@ -25,6 +36,7 @@ const workOrdersRoutes = require('./routes/work-orders');
 const reportsRoutes = require('./routes/reports');
 const analyticsRoutes = require('./routes/analytics');
 
+// Register API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/assets', assetsRoutes);
 app.use('/api/plants', plantsRoutes);
@@ -33,18 +45,20 @@ app.use('/api/work-orders', workOrdersRoutes);
 app.use('/api/reports', reportsRoutes);
 app.use('/api/analytics', analyticsRoutes);
 
-// Serve static files from the React app
-app.use(express.static(path.join(__dirname, '../dist')));
-
-// The "catchall" handler: for any request that doesn't
-// match one above, send back React's index.html file.
+// SPA Catchall - must be AFTER all other routes
 app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../dist/index.html'));
+    const indexPath = path.join(distPath, 'index.html');
+    res.sendFile(indexPath, (err) => {
+        if (err) {
+            console.error('Error sending index.html:', err);
+            res.status(500).send(err.message);
+        }
+    });
 });
 
-// Error handling middleware
+// Global Error Handling
 app.use((err, req, res, next) => {
-    console.error(err.stack);
+    console.error('GLOBAL ERROR:', err.stack);
     res.status(500).json({ error: 'Internal Server Error' });
 });
 
