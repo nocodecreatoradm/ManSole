@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../lib/api'
-import type { MsRepuesto, MsInventarioMovimiento } from '../../lib/types'
+import type { MsRepuesto } from '../../lib/types'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Plus, Search, Package, History, ArrowUpRight, ArrowDownRight, AlertTriangle, Database, X } from 'lucide-react'
 import toast from 'react-hot-toast'

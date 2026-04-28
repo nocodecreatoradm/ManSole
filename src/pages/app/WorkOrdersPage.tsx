@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../lib/api'
 import type { MsOrdenTrabajo } from '../../lib/types'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, Search, FileText, X, Filter, Eye, Edit3, User, Calendar, Tag, Wrench, Package, AlertTriangle } from 'lucide-react'
+import { Plus, Search, FileText, X, Filter, Eye, Edit3, User, Calendar, Tag, Wrench, Package } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuthStore } from '../../store/authStore'
 
