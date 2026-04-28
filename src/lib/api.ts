@@ -1,7 +1,8 @@
-import { 
-  MsPerfil, MsActivo, MsTipoActivo, MsUbicacion, MsOrdenTrabajo, 
+import type { 
+  MsProfile, MsActivo, MsOrdenTrabajo, 
   MsParteActivo, MsComponenteParte, MsActividadOT, MsComponenteActividad,
-  MsRepuesto, MsInventarioMovimiento
+  MsRepuesto, MsInventarioMovimiento, MsPlanta, MsArea, MsCategoriaActivo,
+  MsSolicitudTrabajo, MsPlanPreventivo
 } from './types'
 
 const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:4000/api' : '/api');

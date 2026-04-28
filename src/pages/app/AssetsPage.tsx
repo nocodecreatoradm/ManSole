@@ -69,7 +69,7 @@ export default function AssetsPage() {
   const [drawerMode, setDrawerMode] = useState<'detail' | 'form'>('detail')
   const [selectedActivo, setSelectedActivo] = useState<MsActivo | null>(null)
   const [isEditing, setIsEditing] = useState(false)
-  const [activeTab, setActiveTab] = useState<'info' | 'parts' | 'components'>('info')
+  const [activeTab, setActiveTab] = useState<'info' | 'parts' | 'components' | 'qr'>('info')
   const [selectedPartId, setSelectedPartId] = useState<string | null>(null)
 
   // Sub-queries

@@ -1,414 +1,353 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Table, Card, Button, Input, Space, Tag, Modal, Form, 
-  Select, InputNumber, notification, Typography, Tabs, 
-  Statistic, Row, Col, Empty, Badge
-} from 'antd';
-import { 
-  PlusOutlined, SearchOutlined, Package, 
-  ArrowUpRight, ArrowDownRight, History, 
-  FilterOutlined, AlertTriangle, Database
-} from 'lucide-react';
-import { api } from '../../lib/api';
-import type { MsRepuesto, MsInventarioMovimiento } from '../../lib/types';
-import { useAuth } from '../../contexts/AuthContext';
+import { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { api } from '../../lib/api'
+import type { MsRepuesto, MsInventarioMovimiento } from '../../lib/types'
+import { motion, AnimatePresence } from 'framer-motion'
+import { Plus, Search, Package, History, ArrowUpRight, ArrowDownRight, AlertTriangle, Database, X } from 'lucide-react'
+import toast from 'react-hot-toast'
+import { useAuthStore } from '../../store/authStore'
 
-const { Title, Text } = Typography;
-const { TabPane } = Tabs;
+export default function InventoryPage() {
+  const queryClient = useQueryClient()
+  const { profile } = useAuthStore()
+  const [search, setSearch] = useState('')
+  const [selectedPart, setSelectedPart] = useState<MsRepuesto | null>(null)
+  const [showForm, setShowForm] = useState(false)
+  const [showMovementForm, setShowMovementForm] = useState(false)
 
-export const InventoryPage: React.FC = () => {
-  const [loading, setLoading] = useState(false);
-  const [parts, setParts] = useState<MsRepuesto[]>([]);
-  const [searchText, setSearchText] = useState('');
-  const [isPartModalOpen, setIsPartModalOpen] = useState(false);
-  const [isMovementModalOpen, setIsMovementModalOpen] = useState(false);
-  const [selectedPart, setSelectedPart] = useState<MsRepuesto | null>(null);
-  const [movements, setMovements] = useState<MsInventarioMovimiento[]>([]);
-  const [movementsLoading, setMovementsLoading] = useState(false);
-  
-  const [form] = Form.useForm();
-  const [movementForm] = Form.useForm();
-  const { profile } = useAuth();
-
-  const fetchParts = async () => {
-    setLoading(true);
-    const { data, error } = await api.inventory.getParts();
-    if (error) {
-      notification.error({ message: 'Error al cargar repuestos', description: error });
-    } else {
-      setParts(data || []);
+  // Queries
+  const { data: parts = [], isLoading } = useQuery({
+    queryKey: ['inventory-parts'],
+    queryFn: async () => {
+      const { data, error } = await api.inventory.getParts()
+      if (error) throw new Error(error)
+      return data || []
     }
-    setLoading(false);
-  };
+  })
 
-  const fetchMovements = async (partId: string) => {
-    setMovementsLoading(true);
-    const { data, error } = await api.inventory.getMovements(partId);
-    if (error) {
-      notification.error({ message: 'Error al cargar movimientos', description: error });
-    } else {
-      setMovements(data || []);
-    }
-    setMovementsLoading(false);
-  };
+  const { data: movements = [], isLoading: isLoadingMovements } = useQuery({
+    queryKey: ['inventory-movements', selectedPart?.id],
+    queryFn: async () => {
+      if (!selectedPart) return []
+      const { data, error } = await api.inventory.getMovements(selectedPart.id)
+      if (error) throw new Error(error)
+      return data || []
+    },
+    enabled: !!selectedPart
+  })
 
-  useEffect(() => {
-    fetchParts();
-  }, []);
+  // Mutations
+  const createPartMutation = useMutation({
+    mutationFn: (payload: any) => api.inventory.createPart(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['inventory-parts'] })
+      toast.success('Repuesto registrado')
+      setShowForm(false)
+      setForm({ codigo: '', nombre: '', descripcion: '', categoria: '', uom: 'unidades', stock_minimo: 0, costo_unitario: 0, ubicacion: '' })
+    },
+    onError: (err: any) => toast.error(err.message)
+  })
 
-  const handleCreatePart = async (values: any) => {
-    const { data, error } = await api.inventory.createPart(values);
-    if (error) {
-      notification.error({ message: 'Error al crear repuesto', description: error });
-    } else {
-      notification.success({ message: 'Repuesto creado correctamente' });
-      setIsPartModalOpen(false);
-      form.resetFields();
-      fetchParts();
-    }
-  };
+  const recordMovementMutation = useMutation({
+    mutationFn: (payload: any) => api.inventory.recordMovement({ ...payload, repuesto_id: selectedPart?.id, usuario_id: profile?.id }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['inventory-parts'] })
+      queryClient.invalidateQueries({ queryKey: ['inventory-movements', selectedPart?.id] })
+      toast.success('Movimiento registrado')
+      setShowMovementForm(false)
+      setMovementForm({ tipo: 'entrada', cantidad: 1, referencia_tipo: '', referencia_id: '', notas: '' })
+    },
+    onError: (err: any) => toast.error(err.message)
+  })
 
-  const handleRecordMovement = async (values: any) => {
-    if (!selectedPart) return;
-    
-    const { error } = await api.inventory.recordMovement({
-      ...values,
-      repuesto_id: selectedPart.id,
-      usuario_id: profile?.id
-    });
+  // Form states
+  const [form, setForm] = useState({
+    codigo: '', nombre: '', descripcion: '', categoria: '', uom: 'unidades', 
+    stock_minimo: 0, costo_unitario: 0, ubicacion: ''
+  })
 
-    if (error) {
-      notification.error({ message: 'Error al registrar movimiento', description: error });
-    } else {
-      notification.success({ message: 'Movimiento registrado correctamente' });
-      setIsMovementModalOpen(false);
-      movementForm.resetFields();
-      fetchParts();
-      if (selectedPart) fetchMovements(selectedPart.id);
-    }
-  };
+  const [movementForm, setMovementForm] = useState({
+    tipo: 'entrada' as any, cantidad: 1, referencia_tipo: '', referencia_id: '', notas: ''
+  })
 
-  const filteredParts = parts.filter(p => 
-    p.nombre.toLowerCase().includes(searchText.toLowerCase()) || 
-    p.codigo.toLowerCase().includes(searchText.toLowerCase()) ||
-    p.categoria?.toLowerCase().includes(searchText.toLowerCase())
-  );
+  const filtered = parts.filter(p => 
+    p.nombre.toLowerCase().includes(search.toLowerCase()) || 
+    p.codigo.toLowerCase().includes(search.toLowerCase())
+  )
 
-  const columns = [
-    {
-      title: 'Código',
-      dataIndex: 'codigo',
-      key: 'codigo',
-      render: (text: string) => <Text copyable strong>{text}</Text>
-    },
-    {
-      title: 'Nombre',
-      dataIndex: 'nombre',
-      key: 'nombre',
-    },
-    {
-      title: 'Categoría',
-      dataIndex: 'categoria',
-      key: 'categoria',
-      render: (cat: string) => <Tag color="blue">{cat || 'Sin categoría'}</Tag>
-    },
-    {
-      title: 'Stock Actual',
-      dataIndex: 'stock_actual',
-      key: 'stock_actual',
-      render: (stock: number, record: MsRepuesto) => (
-        <Space>
-          <Text style={{ color: stock <= record.stock_minimo ? '#ff4d4f' : 'inherit' }} strong>
-            {stock} {record.uom}
-          </Text>
-          {stock <= record.stock_minimo && (
-            <AlertTriangle size={14} style={{ color: '#ff4d4f' }} />
-          )}
-        </Space>
-      )
-    },
-    {
-      title: 'Ubicación',
-      dataIndex: 'ubicacion',
-      key: 'ubicacion',
-      render: (u: string) => u || '-'
-    },
-    {
-      title: 'Costo Unit.',
-      dataIndex: 'costo_unitario',
-      key: 'costo_unitario',
-      render: (cost: number) => `$${cost.toFixed(2)}`
-    },
-    {
-      title: 'Acciones',
-      key: 'actions',
-      render: (_: any, record: MsRepuesto) => (
-        <Space>
-          <Button 
-            icon={<PlusOutlined size={14} />} 
-            onClick={() => {
-              setSelectedPart(record);
-              setIsMovementModalOpen(true);
-            }}
-          >
-            Movimiento
-          </Button>
-          <Button 
-            icon={<History size={14} />}
-            onClick={() => {
-              setSelectedPart(record);
-              fetchMovements(record.id);
-            }}
-          >
-            Historial
-          </Button>
-        </Space>
-      )
-    }
-  ];
-
-  const movementColumns = [
-    {
-      title: 'Fecha',
-      dataIndex: 'fecha_movimiento',
-      key: 'fecha_movimiento',
-      render: (date: string) => new Date(date).toLocaleString()
-    },
-    {
-      title: 'Tipo',
-      dataIndex: 'tipo',
-      key: 'tipo',
-      render: (tipo: string) => {
-        const colors = { entrada: 'green', salida: 'red', ajuste: 'orange' };
-        const icons = { 
-          entrada: <ArrowDownRight size={14} />, 
-          salida: <ArrowUpRight size={14} />, 
-          ajuste: <FilterOutlined size={14} /> 
-        };
-        return (
-          <Tag color={colors[tipo as keyof typeof colors]} icon={icons[tipo as keyof typeof icons]}>
-            {tipo.toUpperCase()}
-          </Tag>
-        );
-      }
-    },
-    {
-      title: 'Cantidad',
-      dataIndex: 'cantidad',
-      key: 'cantidad',
-      render: (val: number, record: any) => (
-        <Text strong style={{ color: record.tipo === 'salida' ? '#ff4d4f' : (record.tipo === 'entrada' ? '#52c41a' : 'inherit') }}>
-          {record.tipo === 'salida' ? '-' : '+'}{val}
-        </Text>
-      )
-    },
-    {
-      title: 'Ref',
-      dataIndex: 'referencia_tipo',
-      key: 'referencia',
-      render: (type: string, record: any) => record.referencia_id ? `${type}: ${record.referencia_id}` : '-'
-    },
-    {
-      title: 'Usuario',
-      dataIndex: 'usuario_nombre',
-      key: 'usuario',
-    }
-  ];
-
-  const lowStockCount = parts.filter(p => p.stock_actual <= p.stock_minimo).length;
-  const totalValue = parts.reduce((acc, p) => acc + (p.stock_actual * p.costo_unitario), 0);
+  const stats = {
+    total: parts.length,
+    lowStock: parts.filter(p => p.stock_actual <= p.stock_minimo).length,
+    totalValue: parts.reduce((acc, p) => acc + (p.stock_actual * (p.costo_unitario || 0)), 0)
+  }
 
   return (
-    <div style={{ padding: '24px' }}>
-      <Row gutter={[16, 16]} style={{ marginBottom: '24px' }}>
-        <Col xs={24} sm={8}>
-          <Card bordered={false} className="stats-card">
-            <Statistic 
-              title="Total Repuestos" 
-              value={parts.length} 
-              prefix={<Package size={20} style={{ marginRight: '8px' }} />} 
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={8}>
-          <Card bordered={false} className="stats-card">
-            <Statistic 
-              title="Stock Bajo" 
-              value={lowStockCount} 
-              valueStyle={{ color: lowStockCount > 0 ? '#cf1322' : '#3f8600' }}
-              prefix={<AlertTriangle size={20} style={{ marginRight: '8px' }} />} 
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={8}>
-          <Card bordered={false} className="stats-card">
-            <Statistic 
-              title="Valor de Inventario" 
-              value={totalValue} 
-              precision={2}
-              prefix={<span style={{ marginRight: '8px' }}>$</span>} 
-            />
-          </Card>
-        </Col>
-      </Row>
+    <div className="page-container">
+      <header className="page-header">
+        <div>
+          <h1 className="page-title">Inventario y Repuestos</h1>
+          <p className="page-subtitle">Gestión de existencias y materiales para mantenimiento</p>
+        </div>
+        <button className="btn btn-primary" onClick={() => setShowForm(true)}>
+          <Plus size={18} /> Nuevo Repuesto
+        </button>
+      </header>
 
-      <Card>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '16px' }}>
-          <Title level={4} style={{ margin: 0 }}>Gestión de Inventarios</Title>
-          <Space>
-            <Input 
-              placeholder="Buscar por nombre o código..." 
-              prefix={<SearchOutlined size={16} />} 
-              onChange={e => setSearchText(e.target.value)}
-              style={{ width: 250 }}
+      <div className="dashboard-grid" style={{ marginBottom: 24 }}>
+        <div className="glass-card stat-card">
+          <div className="stat-icon" style={{ background: 'rgba(var(--primary-rgb), 0.1)', color: 'var(--brand-primary)' }}>
+            <Package size={24} />
+          </div>
+          <div>
+            <p className="stat-label">Total Repuestos</p>
+            <h3 className="stat-value">{stats.total}</h3>
+          </div>
+        </div>
+        <div className="glass-card stat-card">
+          <div className="stat-icon" style={{ background: stats.lowStock > 0 ? 'rgba(239, 68, 68, 0.1)' : 'rgba(34, 197, 94, 0.1)', color: stats.lowStock > 0 ? '#ef4444' : '#22c55e' }}>
+            <AlertTriangle size={24} />
+          </div>
+          <div>
+            <p className="stat-label">Stock Bajo</p>
+            <h3 className="stat-value" style={{ color: stats.lowStock > 0 ? '#ef4444' : 'inherit' }}>{stats.lowStock}</h3>
+          </div>
+        </div>
+        <div className="glass-card stat-card">
+          <div className="stat-icon" style={{ background: 'rgba(var(--primary-rgb), 0.1)', color: 'var(--brand-primary)' }}>
+            <Database size={24} />
+          </div>
+          <div>
+            <p className="stat-label">Valor Total</p>
+            <h3 className="stat-value">${stats.totalValue.toFixed(2)}</h3>
+          </div>
+        </div>
+      </div>
+
+      <div className="glass-card">
+        <div className="table-controls">
+          <div className="search-box">
+            <Search size={18} />
+            <input 
+              type="text" 
+              placeholder="Buscar por código o nombre..." 
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
             />
-            <Button 
-              type="primary" 
-              icon={<PlusOutlined size={16} />} 
-              onClick={() => setIsPartModalOpen(true)}
-            >
-              Nuevo Repuesto
-            </Button>
-          </Space>
+          </div>
         </div>
 
-        <Tabs defaultActiveKey="1">
-          <TabPane tab={<span><Database size={16} style={{ marginRight: 8 }} />Stock Actual</span>} key="1">
-            <Table 
-              columns={columns} 
-              dataSource={filteredParts} 
-              loading={loading}
-              rowKey="id"
-              pagination={{ pageSize: 10 }}
-            />
-          </TabPane>
-          <TabPane 
-            tab={
-              <Badge count={movements.length > 0 && selectedPart ? 0 : 0} dot>
-                <span><History size={16} style={{ marginRight: 8 }} />Historial de Movimientos</span>
-              </Badge>
-            } 
-            key="2"
-            disabled={!selectedPart}
+        <div className="table-responsive">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Código</th>
+                <th>Repuesto</th>
+                <th>Categoría</th>
+                <th>Stock Actual</th>
+                <th>Costo Unit.</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {isLoading ? (
+                <tr><td colSpan={6} style={{ textAlign: 'center', padding: 40 }}>Cargando inventario...</td></tr>
+              ) : filtered.length === 0 ? (
+                <tr><td colSpan={6} style={{ textAlign: 'center', padding: 40 }}>No se encontraron repuestos.</td></tr>
+              ) : filtered.map(part => (
+                <tr key={part.id}>
+                  <td><code className="code-badge">{part.codigo}</code></td>
+                  <td>
+                    <div style={{ fontWeight: 600 }}>{part.nombre}</div>
+                    <div className="text-xs text-muted">{part.ubicacion || 'Sin ubicación'}</div>
+                  </td>
+                  <td><span className="badge badge-info">{part.categoria || 'N/A'}</span></td>
+                  <td>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontWeight: 700, color: part.stock_actual <= part.stock_minimo ? '#ef4444' : 'inherit' }}>
+                        {part.stock_actual} {part.uom}
+                      </span>
+                      {part.stock_actual <= part.stock_minimo && <AlertTriangle size={14} color="#ef4444" />}
+                    </div>
+                  </td>
+                  <td>${part.costo_unitario?.toFixed(2)}</td>
+                  <td>
+                    <div className="actions-cell">
+                      <button className="action-btn" title="Movimiento" onClick={() => { setSelectedPart(part); setShowMovementForm(true); }}>
+                        <Plus size={16} />
+                      </button>
+                      <button className="action-btn" title="Historial" onClick={() => setSelectedPart(part)}>
+                        <History size={16} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Drawer Historial */}
+      <AnimatePresence>
+        {selectedPart && !showMovementForm && (
+          <motion.div 
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="drawer-overlay" onClick={() => setSelectedPart(null)}
           >
-            {selectedPart ? (
-              <div style={{ marginTop: 16 }}>
-                <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}>
-                  <Title level={5}>Historial: {selectedPart.nombre} ({selectedPart.codigo})</Title>
-                  <Button onClick={() => setSelectedPart(null)}>Cerrar Historial</Button>
-                </div>
-                <Table 
-                  columns={movementColumns} 
-                  dataSource={movements} 
-                  loading={movementsLoading}
-                  rowKey="id"
-                  size="small"
-                />
+            <motion.div 
+              initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
+              className="drawer-content" onClick={e => e.stopPropagation()}
+            >
+              <div className="drawer-header">
+                <h2 className="drawer-title">Historial: {selectedPart.nombre}</h2>
+                <button className="btn-icon" onClick={() => setSelectedPart(null)}><X /></button>
               </div>
-            ) : (
-              <Empty description="Seleccione un repuesto para ver su historial" />
-            )}
-          </TabPane>
-        </Tabs>
-      </Card>
+
+              <div className="drawer-body">
+                <div className="list-container">
+                  {isLoadingMovements ? (
+                    <p>Cargando historial...</p>
+                  ) : movements.length === 0 ? (
+                    <p className="text-muted">No hay movimientos registrados.</p>
+                  ) : movements.map(m => (
+                    <div key={m.id} className="glass-card" style={{ padding: 12, marginBottom: 10 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                        <span style={{ 
+                          fontSize: 10, textTransform: 'uppercase', fontWeight: 700,
+                          color: m.tipo === 'entrada' ? '#22c55e' : m.tipo === 'salida' ? '#ef4444' : '#f59e0b'
+                        }}>
+                          {m.tipo}
+                        </span>
+                        <span className="text-xs text-muted">{new Date(m.fecha_movimiento).toLocaleString()}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          {m.tipo === 'entrada' ? <ArrowDownRight size={16} color="#22c55e" /> : <ArrowUpRight size={16} color="#ef4444" />}
+                          <span style={{ fontWeight: 800, fontSize: 16 }}>{m.cantidad} {selectedPart.uom}</span>
+                        </div>
+                        <div className="text-xs text-muted">Por: {m.usuario_nombre}</div>
+                      </div>
+                      {m.notas && <p className="text-xs text-muted" style={{ marginTop: 8 }}>Nota: {m.notas}</p>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Modal Nuevo Repuesto */}
-      <Modal
-        title="Crear Nuevo Repuesto"
-        open={isPartModalOpen}
-        onCancel={() => setIsPartModalOpen(false)}
-        onOk={() => form.submit()}
-      >
-        <Form form={form} layout="vertical" onFinish={handleCreatePart}>
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item name="codigo" label="Código" rules={[{ required: true }]}>
-                <Input placeholder="RP-001" />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="categoria" label="Categoría">
-                <Select placeholder="Seleccionar">
-                  <Select.Option value="Mecánico">Mecánico</Select.Option>
-                  <Select.Option value="Eléctrico">Eléctrico</Select.Option>
-                  <Select.Option value="Lubricantes">Lubricantes</Select.Option>
-                  <Select.Option value="Filtros">Filtros</Select.Option>
-                </Select>
-              </Form.Item>
-            </Col>
-          </Row>
-          <Form.Item name="nombre" label="Nombre" rules={[{ required: true }]}>
-            <Input />
-          </Form.Item>
-          <Form.Item name="descripcion" label="Descripción">
-            <Input.TextArea rows={3} />
-          </Form.Item>
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item name="uom" label="Unidad de Medida" initialValue="unidades">
-                <Input placeholder="unidades, metros, litros..." />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="ubicacion" label="Ubicación en Almacén">
-                <Input placeholder="Estante A-1" />
-              </Form.Item>
-            </Col>
-          </Row>
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item name="stock_minimo" label="Stock Mínimo" initialValue={0}>
-                <InputNumber style={{ width: '100%' }} min={0} />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="costo_unitario" label="Costo Unitario ($)" initialValue={0}>
-                <InputNumber style={{ width: '100%' }} min={0} step={0.01} />
-              </Form.Item>
-            </Col>
-          </Row>
-        </Form>
-      </Modal>
+      <AnimatePresence>
+        {showForm && (
+          <motion.div 
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="modal-overlay"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+              className="modal-content glass-card" style={{ maxWidth: 600 }}
+            >
+              <div className="modal-header">
+                <h3>Nuevo Repuesto</h3>
+                <button className="btn-icon" onClick={() => setShowForm(false)}><X /></button>
+              </div>
+              <div className="modal-body">
+                <div className="grid-2">
+                  <div className="input-group">
+                    <label>Código *</label>
+                    <input className="input-field" placeholder="Ej: RP-001" value={form.codigo} onChange={e => setForm({...form, codigo: e.target.value})} />
+                  </div>
+                  <div className="input-group">
+                    <label>Categoría</label>
+                    <select className="input-field" value={form.categoria} onChange={e => setForm({...form, categoria: e.target.value})}>
+                      <option value="">Seleccionar...</option>
+                      <option value="Mecánico">Mecánico</option>
+                      <option value="Eléctrico">Eléctrico</option>
+                      <option value="Lubricantes">Lubricantes</option>
+                      <option value="Filtros">Filtros</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="input-group">
+                  <label>Nombre *</label>
+                  <input className="input-field" value={form.nombre} onChange={e => setForm({...form, nombre: e.target.value})} />
+                </div>
+                <div className="input-group">
+                  <label>Descripción</label>
+                  <textarea className="input-field" value={form.descripcion} onChange={e => setForm({...form, descripcion: e.target.value})} />
+                </div>
+                <div className="grid-2">
+                  <div className="input-group">
+                    <label>UOM *</label>
+                    <input className="input-field" value={form.uom} onChange={e => setForm({...form, uom: e.target.value})} />
+                  </div>
+                  <div className="input-group">
+                    <label>Ubicación</label>
+                    <input className="input-field" value={form.ubicacion} onChange={e => setForm({...form, ubicacion: e.target.value})} />
+                  </div>
+                </div>
+                <div className="grid-2">
+                  <div className="input-group">
+                    <label>Stock Mínimo</label>
+                    <input type="number" className="input-field" value={form.stock_minimo} onChange={e => setForm({...form, stock_minimo: parseInt(e.target.value) || 0})} />
+                  </div>
+                  <div className="input-group">
+                    <label>Costo Unitario ($)</label>
+                    <input type="number" step="0.01" className="input-field" value={form.costo_unitario} onChange={e => setForm({...form, costo_unitario: parseFloat(e.target.value) || 0})} />
+                  </div>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button className="btn btn-secondary" onClick={() => setShowForm(false)}>Cancelar</button>
+                <button className="btn btn-primary" onClick={() => createPartMutation.mutate(form)} disabled={createPartMutation.isPending}>Registrar</button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* Modal Registrar Movimiento */}
-      <Modal
-        title={`Registrar Movimiento: ${selectedPart?.nombre}`}
-        open={isMovementModalOpen}
-        onCancel={() => setIsMovementModalOpen(false)}
-        onOk={() => movementForm.submit()}
-      >
-        <Form form={movementForm} layout="vertical" onFinish={handleRecordMovement}>
-          <Form.Item name="tipo" label="Tipo de Movimiento" rules={[{ required: true }]}>
-            <Select>
-              <Select.Option value="entrada">Entrada (Compra/Retorno)</Select.Option>
-              <Select.Option value="salida">Salida (Consumo OT)</Select.Option>
-              <Select.Option value="ajuste">Ajuste de Inventario</Select.Option>
-            </Select>
-          </Form.Item>
-          <Form.Item name="cantidad" label="Cantidad" rules={[{ required: true }]}>
-            <InputNumber style={{ width: '100%' }} min={0} />
-          </Form.Item>
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item name="referencia_tipo" label="Tipo de Referencia">
-                <Select placeholder="Opcional">
-                  <Select.Option value="OT">Orden de Trabajo</Select.Option>
-                  <Select.Option value="OC">Orden de Compra</Select.Option>
-                  <Select.Option value="INV">Inventario Inicial</Select.Option>
-                </Select>
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="referencia_id" label="ID de Referencia">
-                <Input placeholder="Código OT/Factura" />
-              </Form.Item>
-            </Col>
-          </Row>
-          <Form.Item name="notas" label="Notas/Observaciones">
-            <Input.TextArea rows={2} />
-          </Form.Item>
-        </Form>
-      </Modal>
+      {/* Modal Movimiento */}
+      <AnimatePresence>
+        {showMovementForm && selectedPart && (
+          <motion.div 
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="modal-overlay"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+              className="modal-content glass-card" style={{ maxWidth: 450 }}
+            >
+              <div className="modal-header">
+                <h3>Movimiento: {selectedPart.nombre}</h3>
+                <button className="btn-icon" onClick={() => setShowMovementForm(false)}><X /></button>
+              </div>
+              <div className="modal-body">
+                <div className="input-group">
+                  <label>Tipo de Movimiento</label>
+                  <select className="input-field" value={movementForm.tipo} onChange={e => setMovementForm({...movementForm, tipo: e.target.value as any})}>
+                    <option value="entrada">Entrada (Compra/Retorno)</option>
+                    <option value="salida">Salida (Consumo/Baja)</option>
+                    <option value="ajuste">Ajuste de Inventario</option>
+                  </select>
+                </div>
+                <div className="input-group">
+                  <label>Cantidad ({selectedPart.uom})</label>
+                  <input type="number" className="input-field" min={1} value={movementForm.cantidad} onChange={e => setMovementForm({...movementForm, cantidad: parseFloat(e.target.value) || 1})} />
+                </div>
+                <div className="input-group">
+                  <label>Notas</label>
+                  <textarea className="input-field" value={movementForm.notas} onChange={e => setMovementForm({...movementForm, notas: e.target.value})} />
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button className="btn btn-secondary" onClick={() => setShowMovementForm(false)}>Cancelar</button>
+                <button className="btn btn-primary" onClick={() => recordMovementMutation.mutate(movementForm)} disabled={recordMovementMutation.isPending}>Registrar</button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
-  );
-};
+  )
+}
