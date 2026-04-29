@@ -35,6 +35,7 @@ import ReportsPage from './pages/app/ReportsPage'
 import SettingsPage from './pages/app/SettingsPage'
 import PreventivePage from './pages/app/PreventivePage'
 import InventoryPage from './pages/app/InventoryPage'
+import LandingPage from './pages/LandingPage'
 
 function ProtectedRoute({ children, roles }: { children: React.ReactNode; roles?: string[] }) {
   const { profile, loading, setLoading } = useAuthStore()
@@ -89,7 +90,7 @@ export default function App() {
           }}
         />
         <Routes>
-          <Route path="/" element={<Navigate to="/login" replace />} />
+          <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/app" element={
