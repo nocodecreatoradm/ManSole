@@ -324,23 +324,49 @@ export default function WorkOrdersPage() {
       <AnimatePresence>
         {showDrawer && (
           <motion.div className="drawer-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowDrawer(false)}>
-            <motion.div className="drawer-content slide-in-right" initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} transition={{ type: 'spring', damping: 25, stiffness: 200 }} onClick={(e) => e.stopPropagation()}>
+            <motion.div 
+              className="drawer-content slide-in-right" 
+              initial={{ x: '100%' }} 
+              animate={{ x: 0 }} 
+              exit={{ x: '100%' }} 
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }} 
+              onClick={(e) => e.stopPropagation()}
+              style={{ background: 'var(--bg-elevated)', boxShadow: '-10px 0 50px rgba(0,0,0,0.3)' }}
+            >
               
-              <div className="drawer-header">
+              <div className="drawer-header" style={{ borderBottom: '1px solid var(--border-default)' }}>
                 <div>
-                  <h2 style={{ fontSize: 20 }}>{drawerMode === 'detail' ? 'Detalle de OT' : (isEditing ? 'Editar OT' : 'Nueva OT')}</h2>
-                  {drawerMode === 'detail' && selectedOT && <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>{selectedOT.codigo_ot}</p>}
+                  <h2 style={{ fontSize: 20, fontWeight: 800 }}>{drawerMode === 'detail' ? 'Detalle de OT' : (isEditing ? 'Editar OT' : 'Nueva OT')}</h2>
+                  {drawerMode === 'detail' && selectedOT && <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4, fontFamily: 'var(--font-mono)' }}>{selectedOT.codigo_ot}</p>}
                 </div>
-                <button className="btn btn-ghost btn-icon" onClick={() => setShowDrawer(false)}><X size={20} /></button>
+                <button className="btn btn-ghost btn-icon" onClick={() => setShowDrawer(false)} style={{ background: 'var(--bg-surface-soft)', borderRadius: '50%' }}><X size={20} /></button>
               </div>
 
               <div className="drawer-body">
                 {drawerMode === 'detail' && selectedOT ? (
                   <>
-                    <div className="tabs-container" style={{ marginBottom: 24 }}>
-                      <button className={`tab-btn ${activeTab === 'summary' ? 'active' : ''}`} onClick={() => setActiveTab('summary')}>Resumen</button>
-                      <button className={`tab-btn ${activeTab === 'activities' ? 'active' : ''}`} onClick={() => setActiveTab('activities')}>Ejecución (Actividades)</button>
-                      <button className={`tab-btn ${activeTab === 'materials' ? 'active' : ''}`} onClick={() => setActiveTab('materials')}>Materiales / Repuestos</button>
+                    <div className="tabs-container" style={{ marginBottom: 24, background: 'var(--bg-surface-soft)', padding: '4px', borderRadius: '12px' }}>
+                      <button 
+                        className={`tab-btn ${activeTab === 'summary' ? 'active' : ''}`} 
+                        onClick={() => setActiveTab('summary')}
+                        style={{ background: activeTab === 'summary' ? 'var(--bg-surface)' : 'transparent', color: activeTab === 'summary' ? 'var(--brand-primary)' : 'var(--text-muted)' }}
+                      >
+                        Resumen
+                      </button>
+                      <button 
+                        className={`tab-btn ${activeTab === 'activities' ? 'active' : ''}`} 
+                        onClick={() => setActiveTab('activities')}
+                        style={{ background: activeTab === 'activities' ? 'var(--bg-surface)' : 'transparent', color: activeTab === 'activities' ? 'var(--brand-primary)' : 'var(--text-muted)' }}
+                      >
+                        Ejecución
+                      </button>
+                      <button 
+                        className={`tab-btn ${activeTab === 'materials' ? 'active' : ''}`} 
+                        onClick={() => setActiveTab('materials')}
+                        style={{ background: activeTab === 'materials' ? 'var(--bg-surface)' : 'transparent', color: activeTab === 'materials' ? 'var(--brand-primary)' : 'var(--text-muted)' }}
+                      >
+                        Materiales
+                      </button>
                     </div>
 
                     {activeTab === 'summary' && (
@@ -399,8 +425,8 @@ export default function WorkOrdersPage() {
                         </div>
 
                         {showActivityForm && (
-                          <div className="glass-card" style={{ padding: 16, marginBottom: 20, border: '1px solid var(--primary-color)' }}>
-                            <h4 style={{ marginBottom: 12, fontSize: 14 }}>Nueva Actividad</h4>
+                          <div className="glass-card" style={{ padding: 16, marginBottom: 20, border: '1px solid var(--brand-primary-soft)', background: 'var(--bg-surface-soft)' }}>
+                            <h4 style={{ marginBottom: 12, fontSize: 14, fontWeight: 700 }}>Nueva Actividad</h4>
                             <div className="input-group" style={{ marginBottom: 12 }}>
                               <label>Parte de la Máquina</label>
                               <select className="input-field" value={activityForm.parte_id} onChange={(e) => setActivityForm({ ...activityForm, parte_id: e.target.value })}>
@@ -430,12 +456,12 @@ export default function WorkOrdersPage() {
                         )}
 
                         <div className="list-container" style={{ marginTop: 12 }}>
-                          {actividades.length === 0 ? <p className="text-muted">No se han registrado actividades aún.</p> : (
+                          {actividades.length === 0 ? <p className="text-muted" style={{ textAlign: 'center', padding: '2rem' }}>No se han registrado actividades aún.</p> : (
                             actividades.map((act: any) => (
-                              <div key={act.id} className="activity-card" style={{ padding: '16px', borderRadius: '12px', border: '1px solid var(--border-default)', marginBottom: '16px', background: 'rgba(255,255,255,0.02)', position: 'relative' }}>
+                              <div key={act.id} className="activity-card" style={{ padding: '16px', borderRadius: '12px', border: '1px solid var(--border-default)', marginBottom: '16px', background: 'var(--bg-surface-soft)', position: 'relative' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
                                   <span className="badge badge-completada" style={{ fontSize: 10, textTransform: 'uppercase' }}>{act.tipo_actividad}</span>
-                                  <span className="text-xs" style={{ color: 'var(--primary-color)', fontWeight: 600 }}>{act.parte_nombre}</span>
+                                  <span className="text-xs" style={{ color: 'var(--brand-primary)', fontWeight: 600 }}>{act.parte_nombre}</span>
                                 </div>
                                 <p style={{ fontSize: 14, fontWeight: 500, marginBottom: 12, lineHeight: 1.5 }}>{act.descripcion}</p>
                                 
@@ -443,7 +469,7 @@ export default function WorkOrdersPage() {
                                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                                     <span className="text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>REPUSTOS / SOLUCIÓN</span>
                                     {!showComponentForm || selectedActivityId !== act.id ? (
-                                      <button className="btn btn-ghost btn-sm" style={{ height: 'auto', padding: '2px 8px', fontSize: 11 }} onClick={async () => {
+                                      <button className="btn btn-ghost btn-sm" style={{ height: 'auto', padding: '2px 8px', fontSize: 11, color: 'var(--brand-primary)' }} onClick={async () => {
                                         setSelectedActivityId(act.id)
                                         const { data: comps } = await api.assets.getPartComponents(act.parte_id)
                                         setAvailableComponents(comps || [])
@@ -481,10 +507,10 @@ export default function WorkOrdersPage() {
                                     ) : (
                                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                                         {act.componentes.map((c: any) => (
-                                          <div key={c.id} style={{ background: 'rgba(var(--primary-rgb), 0.1)', border: '1px solid rgba(var(--primary-rgb), 0.2)', borderRadius: 4, padding: '4px 8px', fontSize: 11, display: 'flex', gap: 6 }}>
+                                          <div key={c.id} style={{ background: 'var(--brand-primary-soft)', border: '1px solid var(--border-default)', borderRadius: 4, padding: '4px 8px', fontSize: 11, display: 'flex', gap: 6, color: 'var(--brand-primary)' }}>
                                             <span style={{ fontWeight: 600 }}>{c.cantidad}x</span>
-                                            <span>{c.componente_nombre}</span>
-                                            <span style={{ opacity: 0.6 }}>| {c.accion}</span>
+                                            <span style={{ color: 'var(--text-primary)' }}>{c.componente_nombre}</span>
+                                            <span style={{ opacity: 0.6, color: 'var(--text-muted)' }}>| {c.accion}</span>
                                           </div>
                                         ))}
                                       </div>
@@ -508,8 +534,8 @@ export default function WorkOrdersPage() {
                         </div>
 
                         {showPartForm && (
-                          <div className="glass-card" style={{ padding: 16, marginBottom: 20, border: '1px solid var(--primary-color)' }}>
-                            <h4 style={{ marginBottom: 12, fontSize: 14 }}>Consumir Repuesto</h4>
+                          <div className="glass-card" style={{ padding: 16, marginBottom: 20, border: '1px solid var(--brand-primary-soft)', background: 'var(--bg-surface-soft)' }}>
+                            <h4 style={{ marginBottom: 12, fontSize: 14, fontWeight: 700 }}>Consumir Repuesto</h4>
                             <div className="input-group" style={{ marginBottom: 12 }}>
                               <label>Seleccionar Repuesto (Stock Disp.)</label>
                               <select className="input-field" value={partForm.repuesto_id} onChange={(e) => setPartForm({ ...partForm, repuesto_id: e.target.value })}>
@@ -566,7 +592,7 @@ export default function WorkOrdersPage() {
                         </div>
                         
                         {otParts.length > 0 && (
-                          <div style={{ marginTop: 20, padding: 16, background: 'rgba(var(--primary-rgb), 0.05)', borderRadius: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div style={{ marginTop: 20, padding: 16, background: 'var(--bg-surface-soft)', borderRadius: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid var(--border-default)' }}>
                             <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>TOTAL MATERIALES</span>
                             <span style={{ fontSize: 20, fontWeight: 900, color: 'var(--brand-primary)' }}>
                               ${otParts.reduce((acc: number, curr: any) => acc + (curr.cantidad * (curr.costo_unitario_aplicado || 0)), 0).toFixed(2)}
@@ -637,7 +663,7 @@ export default function WorkOrdersPage() {
                 )}
               </div>
 
-              <div className="drawer-footer">
+              <div className="drawer-footer" style={{ borderTop: '1px solid var(--border-default)', background: 'var(--bg-surface-soft)' }}>
                 <button className="btn btn-secondary" onClick={() => setShowDrawer(false)}>Cerrar</button>
                 {drawerMode === 'detail' ? (
                   isAdmin && <button className="btn btn-primary" onClick={openEditFromDetail}><Edit3 size={16} /> Editar</button>

@@ -138,11 +138,18 @@ export default function UsersPage() {
       <AnimatePresence>
         {showDrawer && (
           <motion.div className="drawer-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowDrawer(false)}>
-            <motion.div className="drawer-content slide-in-right" initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} transition={{ type: 'spring', damping: 25, stiffness: 200 }} onClick={(e) => e.stopPropagation()}>
-              
-              <div className="drawer-header">
-                <h2>{drawerMode === 'detail' ? 'Detalle de Usuario' : 'Cambiar Rol'}</h2>
-                <button className="btn btn-ghost btn-icon" onClick={() => setShowDrawer(false)}><X size={20} /></button>
+            <motion.div 
+              className="drawer-content slide-in-right" 
+              initial={{ x: '100%' }} 
+              animate={{ x: 0 }} 
+              exit={{ x: '100%' }} 
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }} 
+              onClick={(e) => e.stopPropagation()}
+              style={{ background: 'var(--bg-elevated)', boxShadow: '-10px 0 50px rgba(0,0,0,0.3)' }}
+            >
+              <div className="drawer-header" style={{ borderBottom: '1px solid var(--border-default)' }}>
+                <h2 style={{ fontSize: 20, fontWeight: 800 }}>{drawerMode === 'detail' ? 'Detalle de Usuario' : 'Cambiar Rol'}</h2>
+                <button className="btn btn-ghost btn-icon" onClick={() => setShowDrawer(false)} style={{ background: 'var(--bg-surface-soft)', borderRadius: '50%' }}><X size={20} /></button>
               </div>
 
               <div className="drawer-body">
@@ -214,7 +221,7 @@ export default function UsersPage() {
                 )}
               </div>
 
-              <div className="drawer-footer">
+              <div className="drawer-footer" style={{ borderTop: '1px solid var(--border-default)', background: 'var(--bg-surface-soft)' }}>
                 <button className="btn btn-secondary" onClick={() => setShowDrawer(false)}>Cerrar</button>
                 {drawerMode === 'detail' && selectedUser && (
                   <div style={{ display: 'flex', gap: 10 }}>

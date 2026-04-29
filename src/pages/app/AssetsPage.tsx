@@ -169,20 +169,20 @@ export default function AssetsPage() {
         )}
       </div>
 
-      <div className="card" style={{ marginBottom: '2rem', padding: '1rem' }}>
+      <div className="glass-card shadow-sm" style={{ marginBottom: '2rem', padding: '1.25rem' }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', gap: '1rem', flex: 1, minWidth: '300px' }}>
             <div style={{ position: 'relative', flex: 1 }}>
-              <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)' }} />
+              <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
               <input 
                 className="input-field" 
                 placeholder="Buscar por nombre o código..." 
                 value={search} 
                 onChange={(e) => setSearch(e.target.value)} 
-                style={{ paddingLeft: '40px' }}
+                style={{ paddingLeft: '40px', background: 'var(--bg-input)' }}
               />
             </div>
-            <select className="input-field" value={filterEstado} onChange={(e) => setFilterEstado(e.target.value)} style={{ width: '180px' }}>
+            <select className="input-field" value={filterEstado} onChange={(e) => setFilterEstado(e.target.value)} style={{ width: '180px', background: 'var(--bg-input)' }}>
               <option value="">Todos los estados</option>
               <option value="operativo">Operativo</option>
               <option value="en_mantenimiento">En Mantenimiento</option>
@@ -191,16 +191,34 @@ export default function AssetsPage() {
             </select>
           </div>
           
-          <div style={{ display: 'flex', background: '#f1f5f9', padding: '4px', borderRadius: '8px', gap: '4px' }}>
+          <div style={{ display: 'flex', background: 'var(--bg-surface-soft)', padding: '4px', borderRadius: '8px', gap: '4px' }}>
             <button 
               onClick={() => setViewMode('table')}
-              style={{ padding: '6px', borderRadius: '6px', border: 'none', background: viewMode === 'table' ? 'white' : 'transparent', color: viewMode === 'table' ? 'var(--color-primary)' : '#64748b', cursor: 'pointer', display: 'flex', boxShadow: viewMode === 'table' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none' }}
+              style={{ 
+                padding: '6px', 
+                borderRadius: '6px', 
+                border: 'none', 
+                background: viewMode === 'table' ? 'var(--bg-surface)' : 'transparent', 
+                color: viewMode === 'table' ? 'var(--brand-primary)' : 'var(--text-muted)', 
+                cursor: 'pointer', 
+                display: 'flex', 
+                boxShadow: viewMode === 'table' ? 'var(--shadow-sm)' : 'none' 
+              }}
             >
               <List size={18} />
             </button>
             <button 
               onClick={() => setViewMode('grid')}
-              style={{ padding: '6px', borderRadius: '6px', border: 'none', background: viewMode === 'grid' ? 'white' : 'transparent', color: viewMode === 'grid' ? 'var(--color-primary)' : '#64748b', cursor: 'pointer', display: 'flex', boxShadow: viewMode === 'grid' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none' }}
+              style={{ 
+                padding: '6px', 
+                borderRadius: '6px', 
+                border: 'none', 
+                background: viewMode === 'grid' ? 'var(--bg-surface)' : 'transparent', 
+                color: viewMode === 'grid' ? 'var(--brand-primary)' : 'var(--text-muted)', 
+                cursor: 'pointer', 
+                display: 'flex', 
+                boxShadow: viewMode === 'grid' ? 'var(--shadow-sm)' : 'none' 
+              }}
             >
               <LayoutGrid size={18} />
             </button>
@@ -209,17 +227,17 @@ export default function AssetsPage() {
       </div>
 
       {filtered.length === 0 ? (
-        <div className="card" style={{ padding: '5rem 2rem', textAlign: 'center' }}>
-          <div style={{ background: '#f8fafc', width: '64px', height: '64px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
-            <Cog size={32} color="#94a3b8" />
+        <div className="glass-card shadow-sm" style={{ padding: '5rem 2rem', textAlign: 'center' }}>
+          <div style={{ background: 'var(--bg-surface-soft)', width: '64px', height: '64px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
+            <Cog size={32} className="text-muted" />
           </div>
-          <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--color-text)' }}>No se encontraron activos</h3>
-          <p style={{ color: 'var(--color-text-muted)', maxWidth: '400px', margin: '0.5rem auto' }}>
+          <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-primary)' }}>No se encontraron activos</h3>
+          <p style={{ color: 'var(--text-muted)', maxWidth: '400px', margin: '0.5rem auto' }}>
             Prueba ajustando los filtros o realiza una nueva búsqueda para encontrar lo que necesitas.
           </p>
         </div>
       ) : viewMode === 'table' ? (
-        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+        <div className="glass-card shadow-sm" style={{ padding: 0, overflow: 'hidden' }}>
           <div style={{ overflowX: 'auto' }}>
             <table className="data-table">
               <thead>
@@ -241,15 +259,15 @@ export default function AssetsPage() {
                     style={{ cursor: 'pointer' }}
                   >
                     <td style={{ paddingLeft: '1.5rem' }}>
-                      <span style={{ fontFamily: 'var(--font-mono)', background: '#f1f5f9', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600 }}>{activo.codigo}</span>
+                      <span style={{ fontFamily: 'var(--font-mono)', background: 'var(--bg-surface-soft)', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600, color: 'var(--brand-primary)' }}>{activo.codigo}</span>
                     </td>
                     <td>
-                      <div style={{ fontWeight: 700, color: 'var(--color-text)' }}>{activo.nombre}</div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{activo.marca || 'Genérico'} {activo.modelo}</div>
+                      <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{activo.nombre}</div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{activo.marca || 'Genérico'} {activo.modelo}</div>
                     </td>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem' }}>
-                        <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#cbd5e1' }} />
+                        <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--border-strong)' }} />
                         {activo.area_nombre || 'Planta Principal'}
                       </div>
                     </td>
@@ -264,7 +282,7 @@ export default function AssetsPage() {
                       </span>
                     </td>
                     <td style={{ textAlign: 'right', paddingRight: '1.5rem' }}>
-                      <button className="btn-icon" style={{ color: 'var(--color-primary)' }}>
+                      <button className="btn-icon" style={{ color: 'var(--brand-primary)' }}>
                         <ChevronRight size={20} />
                       </button>
                     </td>
@@ -280,13 +298,12 @@ export default function AssetsPage() {
             <motion.div 
               key={activo.id} 
               variants={itemAnim}
-              className="card" 
+              className="glass-card stat-card-hover" 
               onClick={() => openDetail(activo)}
               style={{ cursor: 'pointer', padding: '1.25rem', position: 'relative', overflow: 'hidden' }}
-              whileHover={{ y: -4, boxShadow: 'var(--shadow-lg)' }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
-                <span style={{ fontFamily: 'var(--font-mono)', background: '#f1f5f9', padding: '2px 8px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 600 }}>{activo.codigo}</span>
+                <span style={{ fontFamily: 'var(--font-mono)', background: 'var(--bg-surface-soft)', padding: '2px 8px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 600, color: 'var(--brand-primary)' }}>{activo.codigo}</span>
                 <span className={`badge badge-${activo.estado.replace(/_/g, '-')}`} style={{ fontSize: '0.65rem' }}>
                   {activo.estado.replace(/_/g, ' ')}
                 </span>
@@ -323,24 +340,24 @@ export default function AssetsPage() {
               onClick={(e) => e.stopPropagation()}
               style={{ 
                 maxWidth: '550px', 
-                background: 'white', 
-                boxShadow: '-10px 0 50px rgba(0,0,0,0.1)',
+                background: 'var(--bg-elevated)', 
+                boxShadow: '-10px 0 50px rgba(0,0,0,0.2)',
                 display: 'flex',
                 flexDirection: 'column'
               }}
             >
-              <div style={{ padding: '1.5rem', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--border-default)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
                   <h2 style={{ fontSize: '1.25rem', fontWeight: 800 }}>
                     {drawerMode === 'detail' ? 'Detalle del Activo' : (isEditing ? 'Editar Activo' : 'Nuevo Activo')}
                   </h2>
                   {drawerMode === 'detail' && selectedActivo && (
-                    <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontFamily: 'var(--font-mono)' }}>{selectedActivo.codigo}</span>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{selectedActivo.codigo}</span>
                   )}
                 </div>
                 <button 
                   onClick={() => setShowDrawer(false)}
-                  style={{ background: '#f1f5f9', border: 'none', width: '32px', height: '32px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#64748b' }}
+                  style={{ background: 'var(--bg-surface-soft)', border: 'none', width: '32px', height: '32px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-muted)' }}
                 >
                   <X size={18} />
                 </button>
@@ -349,7 +366,7 @@ export default function AssetsPage() {
               <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem' }}>
                 {drawerMode === 'detail' && selectedActivo ? (
                   <>
-                    <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '2rem', background: '#f8fafc', padding: '4px', borderRadius: '12px' }}>
+                    <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '2rem', background: 'var(--bg-surface-soft)', padding: '4px', borderRadius: '12px' }}>
                       {(['info', 'parts', 'qr'] as const).map(tab => (
                         <button 
                           key={tab}
@@ -359,12 +376,12 @@ export default function AssetsPage() {
                             padding: '8px', 
                             borderRadius: '8px', 
                             border: 'none', 
-                            background: activeTab === tab ? 'white' : 'transparent',
-                            color: activeTab === tab ? 'var(--color-primary)' : '#64748b',
+                            background: activeTab === tab ? 'var(--bg-surface)' : 'transparent',
+                            color: activeTab === tab ? 'var(--brand-primary)' : 'var(--text-muted)',
                             fontSize: '0.8125rem',
                             fontWeight: 700,
                             cursor: 'pointer',
-                            boxShadow: activeTab === tab ? '0 2px 4px rgba(0,0,0,0.05)' : 'none',
+                            boxShadow: activeTab === tab ? 'var(--shadow-sm)' : 'none',
                             transition: 'all 200ms'
                           }}
                         >
@@ -378,14 +395,14 @@ export default function AssetsPage() {
                     {activeTab === 'info' && (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                          <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '12px' }}>
-                            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginBottom: '0.25rem', fontWeight: 600 }}>Estado Actual</div>
+                          <div style={{ background: 'var(--bg-surface-soft)', padding: '1rem', borderRadius: '12px' }}>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.25rem', fontWeight: 600 }}>Estado Actual</div>
                             <span className={`badge badge-${selectedActivo.estado.replace(/_/g, '-')}`} style={{ fontSize: '0.75rem' }}>
                               {selectedActivo.estado.replace(/_/g, ' ')}
                             </span>
                           </div>
-                          <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '12px' }}>
-                            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginBottom: '0.25rem', fontWeight: 600 }}>Criticidad</div>
+                          <div style={{ background: 'var(--bg-surface-soft)', padding: '1rem', borderRadius: '12px' }}>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.25rem', fontWeight: 600 }}>Criticidad</div>
                             <span className={`badge badge-${selectedActivo.prioridad_criticidad}`} style={{ fontSize: '0.75rem' }}>
                               {selectedActivo.prioridad_criticidad}
                             </span>
@@ -394,7 +411,7 @@ export default function AssetsPage() {
 
                         <section>
                           <h4 style={{ fontSize: '0.875rem', fontWeight: 800, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <Info size={16} color="var(--color-primary)" /> Especificaciones Técnicas
+                            <Info size={16} color="var(--brand-primary)" /> Especificaciones Técnicas
                           </h4>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                             {[
@@ -404,7 +421,7 @@ export default function AssetsPage() {
                               { label: 'Categoría', value: (selectedActivo as any).categoria_nombre },
                               { label: 'Ubicación', value: (selectedActivo as any).area_nombre },
                             ].map((item, i) => (
-                              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '0.75rem', borderBottom: '1px solid #f1f5f9' }}>
+                              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '0.75rem', borderBottom: '1px solid var(--border-default)' }}>
                                 <span style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>{item.label}</span>
                                 <span style={{ fontSize: '0.875rem', fontWeight: 700 }}>{item.value || '—'}</span>
                               </div>
@@ -428,18 +445,18 @@ export default function AssetsPage() {
                           <button className="btn-secondary" style={{ padding: '4px 12px', fontSize: '0.75rem' }}>+ Agregar</button>
                         </div>
                         {partes.length === 0 ? (
-                          <div style={{ padding: '2rem', textAlign: 'center', background: '#f8fafc', borderRadius: '12px' }}>
-                            <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>No hay partes registradas.</p>
+                          <div style={{ padding: '2rem', textAlign: 'center', background: 'var(--bg-surface-soft)', borderRadius: '12px' }}>
+                            <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>No hay partes registradas.</p>
                           </div>
                         ) : (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                             {partes.map(p => (
-                              <div key={p.id} style={{ padding: '1rem', background: '#f8fafc', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <div key={p.id} style={{ padding: '1rem', background: 'var(--bg-surface-soft)', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <div>
                                   <div style={{ fontSize: '0.875rem', fontWeight: 700 }}>{p.nombre}</div>
-                                  <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontFamily: 'var(--font-mono)' }}>{p.codigo}</div>
+                                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{p.codigo}</div>
                                 </div>
-                                <ChevronRight size={16} color="#94a3b8" />
+                                <ChevronRight size={16} color="var(--text-muted)" />
                               </div>
                             ))}
                           </div>
@@ -455,8 +472,8 @@ export default function AssetsPage() {
                           borderRadius: '24px', 
                           display: 'inline-block', 
                           marginBottom: '2rem',
-                          boxShadow: '0 20px 40px rgba(0,0,0,0.05)',
-                          border: '1px solid #f1f5f9'
+                          boxShadow: '0 20px 40px rgba(0,0,0,0.1)',
+                          border: '1px solid var(--border-default)'
                         }}>
                           <QRCodeSVG value={selectedActivo.id} size={200} level="H" includeMargin={true} />
                         </div>
@@ -531,7 +548,7 @@ export default function AssetsPage() {
                 )}
               </div>
 
-              <div style={{ padding: '1.5rem', borderTop: '1px solid #f1f5f9', display: 'flex', gap: '1rem' }}>
+              <div style={{ padding: '1.5rem', borderTop: '1px solid var(--border-default)', display: 'flex', gap: '1rem' }}>
                 <button className="btn-secondary" style={{ flex: 1 }} onClick={() => setShowDrawer(false)}>Cancelar</button>
                 {drawerMode === 'detail' ? (
                   isAdmin && <button className="btn-primary" style={{ flex: 1 }} onClick={openEditFromDetail}><Edit3 size={18} /> Editar Activo</button>
