@@ -81,6 +81,19 @@ export default function InventoryPage() {
     totalValue: parts.reduce((acc, p) => acc + (p.stock_actual * (p.costo_unitario || 0)), 0)
   }
 
+  const containerAnim = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: { staggerChildren: 0.1 }
+    }
+  } as const
+
+  const itemAnim = {
+    hidden: { opacity: 0, y: 10 },
+    show: { opacity: 1, y: 0 }
+  } as const
+
   return (
     <div className="page-container">
       <header className="page-header">
@@ -93,46 +106,61 @@ export default function InventoryPage() {
         </button>
       </header>
 
-      <div className="dashboard-grid" style={{ marginBottom: 24 }}>
-        <div className="glass-card stat-card">
-          <div className="stat-icon" style={{ background: 'rgba(var(--primary-rgb), 0.1)', color: 'var(--brand-primary)' }}>
-            <Package size={24} />
+      <motion.div 
+        variants={containerAnim} 
+        initial="hidden"
+        animate="show"
+        className="grid-3" 
+        style={{ marginBottom: '2rem' }}
+      >
+        <motion.div variants={itemAnim} className="glass-card stat-card-hover" style={{ padding: '1.25rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div className="stat-icon-mini" style={{ background: 'var(--brand-primary-soft)', color: 'var(--brand-primary)' }}>
+            <Package size={20} />
           </div>
           <div>
-            <p className="stat-label">Total Repuestos</p>
-            <h3 className="stat-value">{stats.total}</h3>
+            <p className="stat-label-mini">Total Repuestos</p>
+            <h3 className="stat-value-mini">{stats.total}</h3>
           </div>
-        </div>
-        <div className="glass-card stat-card">
-          <div className="stat-icon" style={{ background: stats.lowStock > 0 ? 'rgba(239, 68, 68, 0.1)' : 'rgba(34, 197, 94, 0.1)', color: stats.lowStock > 0 ? '#ef4444' : '#22c55e' }}>
-            <AlertTriangle size={24} />
-          </div>
-          <div>
-            <p className="stat-label">Stock Bajo</p>
-            <h3 className="stat-value" style={{ color: stats.lowStock > 0 ? '#ef4444' : 'inherit' }}>{stats.lowStock}</h3>
-          </div>
-        </div>
-        <div className="glass-card stat-card">
-          <div className="stat-icon" style={{ background: 'rgba(var(--primary-rgb), 0.1)', color: 'var(--brand-primary)' }}>
-            <Database size={24} />
-          </div>
-          <div>
-            <p className="stat-label">Valor Total</p>
-            <h3 className="stat-value">${stats.totalValue.toFixed(2)}</h3>
-          </div>
-        </div>
-      </div>
+        </motion.div>
 
-      <div className="glass-card">
-        <div className="table-controls">
-          <div className="search-box">
-            <Search size={18} />
+        <motion.div variants={itemAnim} className="glass-card stat-card-hover" style={{ padding: '1.25rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div className="stat-icon-mini" style={{ 
+            background: stats.lowStock > 0 ? 'rgba(239, 68, 68, 0.1)' : 'rgba(34, 197, 94, 0.1)', 
+            color: stats.lowStock > 0 ? '#ef4444' : '#22c55e' 
+          }}>
+            <AlertTriangle size={20} />
+          </div>
+          <div>
+            <p className="stat-label-mini">Stock Bajo</p>
+            <h3 className="stat-value-mini" style={{ color: stats.lowStock > 0 ? '#ef4444' : 'inherit' }}>{stats.lowStock}</h3>
+          </div>
+        </motion.div>
+
+        <motion.div variants={itemAnim} className="glass-card stat-card-hover" style={{ padding: '1.25rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div className="stat-icon-mini" style={{ background: 'var(--brand-primary-soft)', color: 'var(--brand-primary)' }}>
+            <Database size={20} />
+          </div>
+          <div>
+            <p className="stat-label-mini">Valor Total</p>
+            <h3 className="stat-value-mini">${stats.totalValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h3>
+          </div>
+        </motion.div>
+      </motion.div>
+
+      <div className="glass-card shadow-sm" style={{ padding: 0, overflow: 'hidden' }}>
+        <div style={{ padding: '1.25rem', borderBottom: '1px solid var(--border-default)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-surface-soft)' }}>
+          <div className="search-box" style={{ maxWidth: '400px', width: '100%' }}>
+            <Search size={18} className="text-muted" />
             <input 
               type="text" 
-              placeholder="Buscar por código o nombre..." 
+              className="search-input"
+              placeholder="Buscar por código, nombre o ubicación..." 
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
+          </div>
+          <div className="text-xs text-muted font-medium">
+            Mostrando {filtered.length} de {parts.length} repuestos
           </div>
         </div>
 
@@ -150,9 +178,26 @@ export default function InventoryPage() {
             </thead>
             <tbody>
               {isLoading ? (
-                <tr><td colSpan={6} style={{ textAlign: 'center', padding: 40 }}>Cargando inventario...</td></tr>
+                <tr>
+                  <td colSpan={6}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '4rem', gap: '1rem' }}>
+                      <div className="loading-spinner" />
+                      <span className="text-muted">Cargando inventario...</span>
+                    </div>
+                  </td>
+                </tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={6} style={{ textAlign: 'center', padding: 40 }}>No se encontraron repuestos.</td></tr>
+                <tr>
+                  <td colSpan={6}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '5rem', gap: '1rem' }}>
+                      <Package size={48} className="text-muted" style={{ opacity: 0.3 }} />
+                      <div style={{ textAlign: 'center' }}>
+                        <h4 style={{ margin: 0, color: 'var(--text-primary)' }}>No se encontraron repuestos</h4>
+                        <p className="text-muted" style={{ fontSize: '0.875rem' }}>Prueba con otros términos de búsqueda o registra uno nuevo.</p>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
               ) : filtered.map(part => (
                 <tr key={part.id}>
                   <td><code className="code-badge">{part.codigo}</code></td>
