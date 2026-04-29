@@ -2,13 +2,12 @@ import { useQuery } from '@tanstack/react-query'
 import { api } from '../../lib/api'
 import { motion } from 'framer-motion'
 import { 
-  Wrench, 
   AlertTriangle, 
   Clock, 
   TrendingUp, 
   Zap, 
   Activity,
-  Box,
+  CheckCircle,
   FileText
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
@@ -38,7 +37,6 @@ export default function DashboardPage() {
 
   const stats = summary?.assetStats || { total: 0, operativos: 0, en_mantenimiento: 0, fuera_de_servicio: 0 }
   const otStats = summary?.otStats || { abiertas: 0, en_proceso: 0, completadas: 0, criticas: 0 }
-  const kpis = summary?.kpis || { MTTR: 0, MTBF: 0, TotalFailures: 0, Availability: 0 }
   const trends = summary?.trends || []
   const recentOTs = summary?.recentOTs || []
   const recentAssets = summary?.recentAssets || []
@@ -91,19 +89,14 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Primary KPI Row */}
-      <motion.div variants={itemAnim} className="grid-4" style={{ marginBottom: '2rem' }}>
-        <div className="glass-card stat-card">
-          <div className="stat-icon" style={{ background: 'var(--info-bg)', color: 'var(--info)' }}>
-            <Box size={24} />
       {/* Stats Grid */}
       <motion.div variants={containerAnim} className="grid-4" style={{ marginBottom: '2rem' }}>
         {[
-          { title: 'Total Assets', value: otStats.total_activos, icon: <Activity size={24} />, color: 'primary', change: '+12%', trendUp: true },
+          { title: 'Total Assets', value: stats.total, icon: <Activity size={24} />, color: 'primary', change: '+12%', trendUp: true },
           { title: 'Open Orders', value: otStats.abiertas, icon: <CheckCircle size={24} />, color: 'warning', change: '-5%', trendUp: false },
           { title: 'In Progress', value: otStats.en_proceso, icon: <Clock size={24} />, color: 'info', change: '+18%', trendUp: true },
           { title: 'Critical Alerts', value: otStats.criticas, icon: <AlertTriangle size={24} />, color: 'error', change: '+2%', trendUp: false }
-        ].map((stat, i) => (
+        ].map((stat) => (
           <motion.div
             key={stat.title}
             variants={itemAnim}
